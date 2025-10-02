@@ -1,0 +1,161 @@
+"use client"
+
+import { useState } from "react"
+import { useRouter } from "next/navigation"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
+import { MdEdit, MdDelete, MdRocket, MdPeople, MdBuild, MdCalendarToday } from "react-icons/md"
+import type { Mission } from "@/types/mission"
+
+interface MissionSummaryProps {
+  mission: Mission
+}
+
+export function MissionSummary({ mission }: MissionSummaryProps) {
+  const router = useRouter()
+  const [isDeleting, setIsDeleting] = useState(false)
+
+  const handleDelete = () => {
+    if (confirm("Are you sure you want to delete this mission? This action cannot be undone.")) {
+      setIsDeleting(true)
+      // In a real app, this would call an API
+      setTimeout(() => {
+        router.push("/missions")
+      }, 500)
+    }
+  }
+
+  const getStatusVariant = (status: Mission["status"]) => {
+    switch (status) {
+      case "Planned":
+        return "outline"
+      case "Running":
+        return "default"
+      case "Completed":
+        return "secondary"
+    }
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-start justify-between">
+        <div className="space-y-1">
+          <div className="flex items-center gap-3">
+            <h1 className="text-3xl font-bold text-foreground">{mission.name}</h1>
+            <Badge variant={getStatusVariant(mission.status)}>{mission.status}</Badge>
+          </div>
+          <p className="text-muted-foreground">{mission.description}</p>
+          <p className="text-sm text-muted-foreground">Mission ID: {mission.id}</p>
+        </div>
+        <div className="flex gap-2">
+          <Button variant="outline" className="gap-2 bg-transparent">
+            <MdEdit className="w-4 h-4" />
+            Edit Mission
+          </Button>
+          <Button variant="destructive" className="gap-2" onClick={handleDelete} disabled={isDeleting}>
+            <MdDelete className="w-4 h-4" />
+            {isDeleting ? "Deleting..." : "Delete"}
+          </Button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              <MdCalendarToday className="w-4 h-4 text-muted-foreground" />
+              Duration & Phases
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            <div className="flex justify-between">
+              <span className="text-sm text-muted-foreground">Total Duration:</span>
+              <span className="text-sm font-medium">{mission.duration_weeks} weeks</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-sm text-muted-foreground">Transit:</span>
+              <span className="text-sm font-medium">{mission.transit_weeks}w</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-sm text-muted-foreground">Surface:</span>
+              <span className="text-sm font-medium">{mission.surface_weeks}w</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-sm text-muted-foreground">Return:</span>
+              <span className="text-sm font-medium">{mission.return_weeks}w</span>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              <MdPeople className="w-4 h-4 text-muted-foreground" />
+              Crew
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            <div className="flex justify-between">
+              <span className="text-sm text-muted-foreground">Crew Count:</span>
+              <span className="text-sm font-medium">{mission.crew_count}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-sm text-muted-foreground">Hours/Week:</span>
+              <span className="text-sm font-medium">{mission.crew_hours_per_week}h</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-sm text-muted-foreground">Total Hours:</span>
+              <span className="text-sm font-medium">
+                {mission.crew_count * mission.crew_hours_per_week * mission.duration_weeks}h
+              </span>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              <MdBuild className="w-4 h-4 text-muted-foreground" />
+              Resources
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            <div className="flex justify-between">
+              <span className="text-sm text-muted-foreground">Printer Capacity:</span>
+              <span className="text-sm font-medium">{mission.printer_capacity_kg_per_week} kg/w</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-sm text-muted-foreground">Tools Available:</span>
+              <span className="text-sm font-medium">{mission.tools_available.length}</span>
+            </div>
+            <div className="text-xs text-muted-foreground mt-2">{mission.tools_available.join(", ")}</div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              <MdRocket className="w-4 h-4 text-muted-foreground" />
+              Metadata
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            <div className="space-y-1">
+              <span className="text-sm text-muted-foreground">Created By:</span>
+              <p className="text-sm font-medium">{mission.created_by}</p>
+            </div>
+            <div className="space-y-1">
+              <span className="text-sm text-muted-foreground">Created:</span>
+              <p className="text-sm font-medium">{new Date(mission.created_at).toLocaleDateString()}</p>
+            </div>
+            <div className="space-y-1">
+              <span className="text-sm text-muted-foreground">Updated:</span>
+              <p className="text-sm font-medium">{new Date(mission.updated_at).toLocaleDateString()}</p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  )
+}
