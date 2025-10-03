@@ -1,0 +1,52 @@
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+dist/
+build/
+.cache/
+.next/
+out/
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# VS Code
+.vscode/
+*.code-workspace
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Logs
+logs/
+*.log
+
+# Misc
+*.swp
+*.swo
+
+# Frontend build artifacts
+frontend/.next/
+frontend/node_modules/
+frontend/out/
+frontend/.env*
+frontend/pnpm-lock.yaml
+
+# Backend build artifacts
+backend/node_modules/
+backend/dist/
+backend/.env*
+backend/.venv*
+backend/__pycache__/
+backend/app/__pycache__/
+backend/app/core/__pycache__/
+backend/app/routers/__pycache__/
+backend/app/models/__pycache__/
+backend/app/services/__pycache__/
+backend/pnpm-lock.yaml
