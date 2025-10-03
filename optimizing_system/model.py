@@ -12,6 +12,7 @@ class OptimizationModel:
         self.solvers = ['cbc', 'glpk', 'cplex', 'gurobi']
         self.model = None
         self.solver = None
+        self.solver_results = None
 
     def setup(self, data: dict):
         if not self._validate_data(data):
@@ -199,15 +200,103 @@ class OptimizationModel:
 
     def solve(self):
         if self.model is None or self.solver is None:
-            raise ValueError("Model not properly initialized. Call setup() and create_model() first.")
+            raise ValueError("Model not properly initialized. Call setup() first.")
         
-        results = self.solver.solve(self.model, tee=True)
-        return results
+        self.solver_results = self.solver.solve(self.model, tee=True)
 
-    def get_results(self):
+    def get_results(self, data):
+        """
+        Get structured results from the solved optimization model
+        
+        Args:
+            data: Original data dictionary used to setup the model
+            solver_results: Optional solver results object for status information
+            
+        Returns:
+            dict: Structured results containing objective value, schedule, and outputs
+        """
         if self.model is None:
             raise ValueError("Model not solved yet.")
-        return self.model
+        
+        weeks = data['weeks']
+        materials = data['materials']
+        methods = data['methods']
+        outputs = data['outputs']
+        
+        # Extract schedule
+        schedule = []
+        for t in weeks:
+            week_data = {'week': t, 'methods': {}}
+            for method in methods:
+                week_data['methods'][method] = {
+                    'processed_kg': float(value(self.model.total_processed_by_method[method, t])),
+                    'is_running': int(value(self.model.is_method_running[method, t])),
+                    'materials_processed': {}
+                }
+                # Add individual material processing for this method
+                for material in materials:
+                    week_data['methods'][method]['materials_processed'][material] = float(
+                        value(self.model.material_processed_by_method[material, method, t])
+                    )
+            schedule.append(week_data)
+        
+        # Extract outputs
+        output_data = []
+        for output in outputs:
+            output_info = {'output': output, 'weeks': []}
+            for t in weeks:
+                output_info['weeks'].append({
+                    'week': t,
+                    'produced_kg': float(value(self.model.output_produced[output, t])),
+                    'inventory_kg': float(value(self.model.output_inventory[output, t]))
+                })
+            output_data.append(output_info)
+        
+        # Extract material inventory
+        material_inventory = []
+        for material in materials:
+            material_info = {'material': material, 'weeks': []}
+            for t in weeks:
+                material_info['weeks'].append({
+                    'week': t,
+                    'inventory_kg': float(value(self.model.material_inventory[material, t]))
+                })
+            material_inventory.append(material_info)
+        
+        # Calculate summary statistics
+        total_processed = sum(
+            value(self.model.total_processed_by_method[method, t]) 
+            for method in methods for t in weeks
+        )
+        
+        total_produced = sum(
+            value(self.model.output_produced[output, t]) 
+            for output in outputs for t in weeks
+        )
+        
+        total_value = sum(
+            data['output_values'].get(output, 0) * value(self.model.output_produced[output, t])
+            for output in outputs for t in weeks
+        )
+        
+        return {
+            'objective_value': float(value(self.model.objective_function)),
+            'solver_status': str(self.solver_results.solver.status) if self.solver_results else 'unknown',
+            'termination_condition': str(self.solver_results.solver.termination_condition) if self.solver_results else 'unknown',
+            'total_processed_kg': float(total_processed),
+            'total_produced_kg': float(total_produced),
+            'total_value': float(total_value),
+            'schedule': schedule,
+            'outputs': output_data,
+            'material_inventory': material_inventory,
+            'summary': {
+                'weeks_processed': len(weeks),
+                'methods_used': [method for method in methods 
+                               if any(value(self.model.is_method_running[method, t]) > 0 for t in weeks)],
+                'outputs_produced': [output for output in outputs 
+                                   if any(value(self.model.output_produced[output, t]) > 0 for t in weeks)]
+            }
+        }
 
     def print_schedule(self, weeks):
         """Print the production schedule"""
@@ -444,87 +533,3 @@ class OptimizationModel:
         else:
             print("Data validation passed successfully!")
             return True
-
-
-# Example usage and test
-if __name__ == "__main__":
-    # Sample data structure
-    sample_data = {
-        'materials': ["plastic", "textile"],
-        'methods': ["extrude", "compress"],
-        'outputs': ["filament", "insulation"],
-        'weeks': list(range(1, 9)),  # weeks 1-8
-        
-        # Waste generated per week {(material, week): kg}
-        'waste_generated': {
-            ("plastic", 1): 5.0, ("plastic", 2): 5.0, ("plastic", 3): 5.0, ("plastic", 4): 5.0,
-            ("textile", 1): 0.0, ("textile", 2): 3.0, ("textile", 3): 3.0, ("textile", 4): 3.0,
-            ("plastic", 5): 5.0, ("plastic", 6): 5.0, ("plastic", 7): 5.0, ("plastic", 8): 5.0,
-            ("textile", 5): 3.0, ("textile", 6): 3.0, ("textile", 7): 3.0, ("textile", 8): 3.0,
-        },
-        
-        # Initial inventory
-        'initial_inventory': {
-            'materials': {"plastic": 0.0, "textile": 0.0},
-            'outputs': {"filament": 0.0, "insulation": 0.0}
-        },
-        
-        # Demands {(output, week): kg}
-        'demands': {
-            ("filament", 5): 4.0,
-            ("insulation", 8): 6.0
-        },
-        
-        # Production yields {(material, method, output): kg_output_per_kg_input}
-        'yields': {
-            ("plastic", "extrude", "filament"): 0.8,
-            ("plastic", "compress", "filament"): 0.1,
-            ("textile", "extrude", "filament"): 0.0,
-            ("textile", "compress", "filament"): 0.0,
-            ("plastic", "extrude", "insulation"): 0.0,
-            ("plastic", "compress", "insulation"): 0.0,
-            ("textile", "extrude", "insulation"): 0.0,
-            ("textile", "compress", "insulation"): 0.6
-        },
-        
-        # Capacity and constraints
-        'max_capacity': {
-            ("extrude", t): 8.0 for t in range(1, 9)
-        },
-        'min_lot_size': {"extrude": 1.0, "compress": 1.0},
-        'crew_cost': {"extrude": 0.5, "compress": 0.8},
-        'energy_cost': {"extrude": 2.0, "compress": 3.0},
-        'crew_available': {t: 10.0 for t in range(1, 9)},
-        'energy_available': {t: 40.0 for t in range(1, 9)},
-        'output_capacity': {"filament": 20.0, "insulation": 20.0},
-        'input_capacity': {"plastic": 50.0, "textile": 30.0},
-        'availability': {
-            (r, t): 1 if (r, t) != ("compress", 4) else 0 for r in ["extrude", "compress"] for t in range(1, 9)
-        },
-        # Set compress unavailable in week 4
-        'risk_cost': {"extrude": 0.1, "compress": 0.2},
-        'output_values': {"filament": 2.0, "insulation": 1.5},
-        
-        # Objective weights
-        'weights': {
-            'mass': 1.0, 'value': 1.0, 'crew': 0.5,
-            'energy': 0.2, 'risk': 0.3
-        },
-        
-        # Deadlines
-        'deadlines': [
-            {'output': 'filament', 'week': 5, 'amount': 4.0},
-            {'output': 'insulation', 'week': 8, 'amount': 6.0}
-        ]
-    }
-    
-    model = OptimizationModel()
-    
-    
-    model.setup(sample_data)
-    results = model.solve()
-            
-    print("Solver status:", results.solver.status, results.solver.termination_condition)
-    print("Objective value:", value(model.model.objective_function))
-            
-    model.print_schedule(sample_data['weeks'])
