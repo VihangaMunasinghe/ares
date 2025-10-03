@@ -1,0 +1,19 @@
+[tool.poetry]
+name = "ares-optimization"
+version = "0.1.0"
+description = "Mars recycling optimization model"
+authors = ["Vihanga Munasinghe"]
+package-mode = false
+
+[tool.poetry.dependencies]
+python = "^3.11"
+pyomo = "^6.0"
+pandas = "^2.0"
+numpy = "^1.25"
+ortools = "^9.0"
+
+[tool.poetry.group.dev.dependencies]
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
