@@ -1,12 +1,13 @@
 import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from dotenv import load_dotenv
 from app.core.config import get_settings
 from app.core.db import ping
 from app.routers import missions, materials, recipes, items, jobs, schedules
-
-load_dotenv()
 settings = get_settings()
 
 app = FastAPI(title="NASA Mission Optimizer Backend", version="0.1.0")

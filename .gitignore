@@ -42,4 +42,11 @@ frontend/pnpm-lock.yaml
 backend/node_modules/
 backend/dist/
 backend/.env*
+backend/.venv*
+backend/__pycache__/
+backend/app/__pycache__/
+backend/app/core/__pycache__/
+backend/app/routers/__pycache__/
+backend/app/models/__pycache__/
+backend/app/services/__pycache__/
 backend/pnpm-lock.yaml

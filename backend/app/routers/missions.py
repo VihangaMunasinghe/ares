@@ -10,7 +10,16 @@ router = APIRouter(prefix="/missions", tags=["missions"])
 @router.get("", response_model=list[MissionOut])
 async def list_missions(db: AsyncSession = Depends(get_db)):
     rs = await db.execute(text("select * from missions order by created_at desc"))
-    return [dict(r) for r in rs.mappings().all()]
+    missions = []
+    for row in rs.mappings().all():
+        mission_dict = dict(row)
+        # Convert UUID objects to strings
+        if mission_dict.get('id'):
+            mission_dict['id'] = str(mission_dict['id'])
+        if mission_dict.get('owner_id'):
+            mission_dict['owner_id'] = str(mission_dict['owner_id'])
+        missions.append(mission_dict)
+    return missions
 
 @router.get("/{mission_id}", response_model=MissionOut)
 async def get_mission(mission_id: str, db: AsyncSession = Depends(get_db)):
@@ -18,7 +27,13 @@ async def get_mission(mission_id: str, db: AsyncSession = Depends(get_db)):
     row = rs.mappings().first()
     if not row:
         raise HTTPException(404, "Mission not found")
-    return dict(row)
+    mission_dict = dict(row)
+    # Convert UUID objects to strings
+    if mission_dict.get('id'):
+        mission_dict['id'] = str(mission_dict['id'])
+    if mission_dict.get('owner_id'):
+        mission_dict['owner_id'] = str(mission_dict['owner_id'])
+    return mission_dict
 
 @router.post("", response_model=MissionOut)
 async def create_mission(payload: MissionCreate, db: AsyncSession = Depends(get_db)):
@@ -44,4 +59,10 @@ async def create_mission(payload: MissionCreate, db: AsyncSession = Depends(get_
         "status": payload.status
     })
     await db.commit()
-    return dict(rs.mappings().first())
+    mission_dict = dict(rs.mappings().first())
+    # Convert UUID objects to strings
+    if mission_dict.get('id'):
+        mission_dict['id'] = str(mission_dict['id'])
+    if mission_dict.get('owner_id'):
+        mission_dict['owner_id'] = str(mission_dict['owner_id'])
+    return mission_dict
