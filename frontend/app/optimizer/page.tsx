@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { MdPlayArrow, MdTune, MdCheckCircle, MdError, MdSchedule, MdPending, MdCancel, MdSearch, MdFilterList } from "react-icons/md"
+import { MdPlayArrow, MdTune, MdCheckCircle, MdError, MdSchedule, MdPending, MdCancel, MdSearch, MdFilterList, MdArrowBack } from "react-icons/md"
 import { mockMissions } from "@/types/mission"
 import { mockOptimizationJobs, mockOptimizationJobsForMission2 } from "@/lib/mock-data/optimization-jobs"
 import type { Job } from "@/types/jobs"
@@ -119,14 +119,23 @@ export default function SchedulerPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-foreground">Mission Optimizer</h1>
-          <p className="text-muted-foreground mt-1">
-            Optimizing: <span className="font-semibold">{selectedMission.name}</span>
-          </p>
+        <div className="flex items-center gap-4">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => router.push('/missions')}
+            className="gap-2 hover:bg-muted"
+          >
+            <MdArrowBack className="w-4 h-4" />
+          </Button>
+          <div>
+            <h1 className="text-3xl font-bold text-foreground">Mission Optimizer</h1>
+            <p className="text-muted-foreground mt-1">
+              Optimizing: <span className="font-semibold">{selectedMission.name}</span>
+            </p>
+          </div>
         </div>
         <Button onClick={() => router.push(`/optimizer/new?mission=${missionId}`)} className="gap-2 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700">
-          <MdTune className="w-5 h-5" />
           Create New Job
         </Button>
       </div>
@@ -141,7 +150,7 @@ export default function SchedulerPage() {
         
         {/* Search and Filters */}
         <Card>
-          <CardContent className="p-4">
+          <CardContent className="py-0 px-4">
             <div className="flex flex-col sm:flex-row gap-4">
               <div className="flex-1 relative">
                 <MdSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
@@ -229,17 +238,7 @@ export default function SchedulerPage() {
                       </div>
                     )}
                     
-                    {job.startedAt && (
-                      <div className="text-sm text-muted-foreground">
-                        Started: {new Date(job.startedAt).toLocaleString()}
-                      </div>
-                    )}
-                    
-                    {job.completedAt && (
-                      <div className="text-sm text-muted-foreground">
-                        Completed: {new Date(job.completedAt).toLocaleString()}
-                      </div>
-                    )}
+
                     
                     {job.error && (
                       <div className="text-sm text-red-600 bg-red-50 p-2 rounded">

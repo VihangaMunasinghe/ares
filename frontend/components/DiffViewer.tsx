@@ -270,42 +270,42 @@ export default function DiffViewer({ diff }: DiffViewerProps) {
               </div>
             ) : (
               paginatedChanges.map((change, index) => (
-              <div key={change.itemId} className="border rounded-lg p-3 space-y-2">
+              <div key={change.itemId} className="border rounded-lg p-4 space-y-3">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-3">
                     {getChangeIcon(change.changeType)}
                     <div>
-                      <div className="text-sm font-medium">{change.itemName}</div>
-                      <div className="text-xs text-muted-foreground">{change.category}</div>
+                      <div className="font-medium">{change.itemName}</div>
+                      <div className="text-sm text-muted-foreground">{change.category}</div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-1">
-                    <Badge variant={getChangeBadgeVariant(change.changeType)} className="text-xs px-2 py-0.5">
+                  <div className="flex items-center gap-2">
+                    <Badge variant={getChangeBadgeVariant(change.changeType)}>
                       {change.changeType}
                     </Badge>
-                    <Badge variant="outline" className={`text-xs px-2 py-0.5 ${getImpactColor(change.impactType)}`}>
+                    <Badge variant="outline" className={getImpactColor(change.impactType)}>
                       {change.impactType.replace('_', ' ')}
                     </Badge>
                   </div>
                 </div>
 
                 {/* Before/After Quantities */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 py-1">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 py-2">
                   <div className="text-center">
-                    <div className="text-xs text-muted-foreground">Before</div>
-                    <div className="text-sm font-semibold">
+                    <div className="text-sm text-muted-foreground">Before</div>
+                    <div className="text-lg font-semibold">
                       {change.before.toLocaleString()} {change.unit}
                     </div>
                   </div>
                   <div className="text-center">
-                    <div className="text-xs text-muted-foreground">After</div>
-                    <div className="text-sm font-semibold">
+                    <div className="text-sm text-muted-foreground">After</div>
+                    <div className="text-lg font-semibold">
                       {change.after.toLocaleString()} {change.unit}
                     </div>
                   </div>
                   <div className="text-center">
-                    <div className="text-xs text-muted-foreground">Change</div>
-                    <div className={`text-sm font-semibold ${
+                    <div className="text-sm text-muted-foreground">Change</div>
+                    <div className={`text-lg font-semibold ${
                       change.change < 0 ? 'text-green-600' : 
                       change.change > 0 ? 'text-blue-600' : 'text-gray-600'
                     }`}>
@@ -318,12 +318,12 @@ export default function DiffViewer({ diff }: DiffViewerProps) {
                 </div>
 
                 {/* Justification */}
-                <div className="bg-muted/50 rounded p-2">
-                  <div className="text-xs font-medium mb-1">Justification</div>
-                  <div className="text-xs text-muted-foreground">{change.justification}</div>
+                <div className="bg-muted/50 rounded p-3">
+                  <div className="text-sm font-medium mb-1">Justification</div>
+                  <div className="text-sm text-muted-foreground">{change.justification}</div>
                   {change.weekApplied && change.weekApplied.length > 0 && (
-                    <div className="mt-1 text-xs text-muted-foreground">
-                      Weeks: {change.weekApplied.join(', ')}
+                    <div className="mt-2 text-xs text-muted-foreground">
+                      Applied in weeks: {change.weekApplied.join(', ')}
                     </div>
                   )}
                 </div>
