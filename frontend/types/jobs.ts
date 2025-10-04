@@ -12,9 +12,45 @@ export interface Job {
   error?: string
 }
 
+export interface MaterialQuantityDiff {
+  itemId: string
+  itemName: string
+  category: string
+  unit: string
+  before: number
+  after: number
+  change: number
+  changeType: 'reduced' | 'increased' | 'eliminated' | 'added'
+  justification: string
+  impactType: 'mass_saving' | 'recycling_gain' | 'safety_improvement' | 'efficiency_gain'
+  weekApplied?: number[]
+}
+
+export interface OptimizationDiff {
+  materialChanges: MaterialQuantityDiff[]
+  summary: {
+    totalMassSaved: number
+    totalItemsAffected: number
+    recyclingTasksAdded: number
+    safetyImprovements: number
+  }
+  justification: {
+    primaryStrategy: string
+    keyDecisions: string[]
+    tradeOffs: string[]
+  }
+}
+
 export interface JobResult {
   success: boolean
-  data: Record<string, unknown>
+  data: Record<string, unknown> & {
+    optimizedSchedule?: {
+      totalWasteReduced?: string
+      energyEfficiency?: string
+      crewUtilization?: string
+    }
+    optimizationDiff?: OptimizationDiff
+  }
   metrics: {
     duration: number
     itemsProcessed: number
