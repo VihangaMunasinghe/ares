@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
 from sse_starlette.sse import EventSourceResponse
@@ -54,3 +54,12 @@ async def stream_events(job_id: str, db: AsyncSession = Depends(get_db)):
                 last_count = len(logs)
             await asyncio.sleep(2)
     return EventSourceResponse(event_generator())
+
+@router.delete("/{job_id}", status_code=status.HTTP_200_OK)
+async def delete_job(job_id: str, db: AsyncSession = Depends(get_db)):
+    rs = await db.execute(text("delete from jobs where id=:id returning id"), {"id": job_id})
+    deleted = rs.mappings().first()
+    await db.commit()
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Job not found")
+    return {"success": True, "message": "Job deleted successfully."}

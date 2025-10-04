@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
 from app.core.deps import get_db
@@ -66,3 +66,12 @@ async def create_mission(payload: MissionCreate, db: AsyncSession = Depends(get_
     if mission_dict.get('owner_id'):
         mission_dict['owner_id'] = str(mission_dict['owner_id'])
     return mission_dict
+
+@router.delete("/{mission_id}", status_code=status.HTTP_200_OK)
+async def delete_mission(mission_id: str, db: AsyncSession = Depends(get_db)):
+    rs = await db.execute(text("delete from missions where id=:id returning id"), {"id": mission_id})
+    deleted = rs.mappings().first()
+    await db.commit()
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Mission not found")
+    return {"success": True, "message": "Mission deleted successfully."}

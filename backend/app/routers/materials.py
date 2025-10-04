@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
 from app.core.deps import get_db
@@ -47,3 +47,12 @@ async def create_waste(payload: WasteStreamCreate, db: AsyncSession = Depends(ge
     })
     await db.commit()
     return dict(rs.mappings().first())
+
+@router.delete("/{material_id}", status_code=status.HTTP_200_OK)
+async def delete_material(material_id: str, db: AsyncSession = Depends(get_db)):
+    rs = await db.execute(text("delete from materials where id=:id returning id"), {"id": material_id})
+    deleted = rs.mappings().first()
+    await db.commit()
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Material not found")
+    return {"success": True, "message": "Material deleted successfully."}
