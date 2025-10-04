@@ -52,14 +52,6 @@ async def create_material_global(payload: MaterialGlobalCreate, db: AsyncSession
     await db.commit()
     return dict(rs.mappings().first())
 
-@router.get("/materials/{material_id}", response_model=MaterialGlobalOut)
-async def get_material_global(material_id: str, db: AsyncSession = Depends(get_db)):
-    rs = await db.execute(text("select * from materials_global where id = :id"), {"id": material_id})
-    material = rs.mappings().first()
-    if not material:
-        raise HTTPException(status_code=404, detail="Material not found")
-    return dict(material)
-
 @router.delete("/materials/{material_id}")
 async def delete_material_global(material_id: str, db: AsyncSession = Depends(get_db)):
     rs = await db.execute(text("delete from materials_global where id = :id returning id"), {"id": material_id})

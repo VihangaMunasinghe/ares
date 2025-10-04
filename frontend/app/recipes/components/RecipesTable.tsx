@@ -2,7 +2,7 @@
 
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { MdAdd, MdAccessTime, MdBolt, MdWarning } from "react-icons/md"
+import { MdAccessTime, MdBolt, MdWarning } from "react-icons/md"
 import type { Recipe, RecipeGridData, Material, Method } from "@/types/recipe"
 import { cn } from "@/lib/utils"
 
@@ -13,32 +13,6 @@ interface RecipesTableProps {
 }
 
 export function RecipesTable({ gridData, onCellClick, onDataChange }: RecipesTableProps) {
-  const handleAddMaterial = () => {
-    const newMaterial: Material = {
-      id: `mat-${Date.now()}`,
-      name: "New Material",
-      category: "Uncategorized",
-    }
-    onDataChange({
-      ...gridData,
-      materials: [...gridData.materials, newMaterial],
-    })
-  }
-
-  const handleAddMethod = () => {
-    const newMethod: Method = {
-      id: `meth-${Date.now()}`,
-      name: "New Method",
-      description: "",
-      volumeConstraint: 0,
-      capacityPerDay: 0,
-    }
-    onDataChange({
-      ...gridData,
-      methods: [...gridData.methods, newMethod],
-    })
-  }
-
   const getRecipe = (materialId: string, methodId: string): Recipe | undefined => {
     return gridData.recipes.find((r) => r.materialId === materialId && r.methodId === methodId)
   }
@@ -71,12 +45,6 @@ export function RecipesTable({ gridData, onCellClick, onDataChange }: RecipesTab
                       </div>
                     </th>
                   ))}
-                  <th className="p-3 border-b border-border">
-                    <Button size="sm" variant="ghost" onClick={handleAddMethod} className="gap-1">
-                      <MdAdd className="w-4 h-4" />
-                      Add Method
-                    </Button>
-                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -142,20 +110,9 @@ export function RecipesTable({ gridData, onCellClick, onDataChange }: RecipesTab
                         </td>
                       )
                     })}
-                    <td className="p-3 border-b border-border"></td>
                   </tr>
                 ))}
               </tbody>
-              <tfoot>
-                <tr>
-                  <td className="p-3" colSpan={gridData.methods.length + 2}>
-                    <Button size="sm" variant="ghost" onClick={handleAddMaterial} className="gap-1">
-                      <MdAdd className="w-4 h-4" />
-                      Add Material
-                    </Button>
-                  </td>
-                </tr>
-              </tfoot>
             </table>
           </div>
         </div>

@@ -1,12 +1,18 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
-import { MdUpload, MdDownload, MdFileDownload } from "react-icons/md"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { MdUpload, MdDownload, MdFileDownload, MdSettings } from "react-icons/md"
 import { RecipesTable } from "./components/RecipesTable"
 import { RecipeDetailDrawer } from "./components/RecipeDetailDrawer"
 import { UploadRecipes } from "./components/UploadRecipes"
+import { MaterialDialog } from "./components/MaterialDialog"
+import { MethodDialog } from "./components/MethodDialog"
+import { MaterialsMethodsManager } from "./components/MaterialsMethodsManager"
+import { materialsApi, methodsApi, recipesApi } from "@/lib/api/global-entities"
 import type { Recipe, RecipeGridData } from "@/types/recipe"
+import type { Material as ApiMaterial, Method as ApiMethod } from "@/lib/api/global-entities"
 
 // Mock data
 const mockData: RecipeGridData = {
@@ -128,6 +134,58 @@ export default function RecipesPage() {
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null)
   const [isDrawerOpen, setIsDrawerOpen] = useState(false)
   const [isUploadOpen, setIsUploadOpen] = useState(false)
+  
+  // API state
+  const [apiMaterials, setApiMaterials] = useState<ApiMaterial[]>([])
+  const [apiMethods, setApiMethods] = useState<ApiMethod[]>([])
+  const [isLoadingData, setIsLoadingData] = useState(true)
+  
+  // Dialog state
+  const [isMaterialDialogOpen, setIsMaterialDialogOpen] = useState(false)
+  const [isMethodDialogOpen, setIsMethodDialogOpen] = useState(false)
+  const [editingMaterial, setEditingMaterial] = useState<ApiMaterial | null>(null)
+  const [editingMethod, setEditingMethod] = useState<ApiMethod | null>(null)
+
+  // Load data from API on mount
+  useEffect(() => {
+    const loadData = async () => {
+      setIsLoadingData(true)
+      try {
+        const [materials, methods] = await Promise.all([
+          materialsApi.list(),
+          methodsApi.list(),
+        ])
+        setApiMaterials(materials)
+        setApiMethods(methods)
+        
+        // Convert API data to grid format for compatibility
+        const convertedGridData: RecipeGridData = {
+          materials: materials.map(m => ({
+            id: m.id,
+            name: m.name,
+            category: m.category,
+          })),
+          methods: methods.map(m => ({
+            id: m.id,
+            name: m.name,
+            description: m.description,
+            volumeConstraint: m.min_lot_size,
+            capacityPerDay: 10, // Default value since API doesn't have this field
+          })),
+          recipes: mockData.recipes, // Keep mock recipes for now
+        }
+        setGridData(convertedGridData)
+      } catch (error) {
+        console.error("Error loading data:", error)
+        // Fallback to mock data if API fails
+        setGridData(mockData)
+      } finally {
+        setIsLoadingData(false)
+      }
+    }
+    
+    loadData()
+  }, [])
 
   const handleCellClick = (recipe: Recipe) => {
     setSelectedRecipe(recipe)
@@ -140,6 +198,75 @@ export default function RecipesPage() {
       recipes: prev.recipes.map((r) => (r.id === updatedRecipe.id ? updatedRecipe : r)),
     }))
     setIsDrawerOpen(false)
+  }
+
+  // Material handlers
+  const handleSaveMaterial = (material: ApiMaterial) => {
+    setApiMaterials((prev) => [...prev, material])
+    setGridData((prev) => ({
+      ...prev,
+      materials: [...prev.materials, {
+        id: material.id,
+        name: material.name,
+        category: material.category,
+      }],
+    }))
+    setIsMaterialDialogOpen(false)
+    setEditingMaterial(null)
+  }
+
+  const handleAddMaterial = () => {
+    setEditingMaterial(null)
+    setIsMaterialDialogOpen(true)
+  }
+
+  // Method handlers
+  const handleSaveMethod = (method: ApiMethod) => {
+    setApiMethods((prev) => [...prev, method])
+    setGridData((prev) => ({
+      ...prev,
+      methods: [...prev.methods, {
+        id: method.id,
+        name: method.name,
+        description: method.description,
+        volumeConstraint: method.min_lot_size,
+        capacityPerDay: 10, // Default value
+      }],
+    }))
+    setIsMethodDialogOpen(false)
+    setEditingMethod(null)
+  }
+
+  const handleAddMethod = () => {
+    setEditingMethod(null)
+    setIsMethodDialogOpen(true)
+  }
+
+  // Update handlers for manager component
+  const handleMaterialsChange = (updatedMaterials: ApiMaterial[]) => {
+    setApiMaterials(updatedMaterials)
+    setGridData((prev) => ({
+      ...prev,
+      materials: updatedMaterials.map(m => ({
+        id: m.id,
+        name: m.name,
+        category: m.category,
+      })),
+    }))
+  }
+
+  const handleMethodsChange = (updatedMethods: ApiMethod[]) => {
+    setApiMethods(updatedMethods)
+    setGridData((prev) => ({
+      ...prev,
+      methods: updatedMethods.map(m => ({
+        id: m.id,
+        name: m.name,
+        description: m.description,
+        volumeConstraint: m.min_lot_size,
+        capacityPerDay: 10, // Default value
+      })),
+    }))
   }
 
   const handleExportCSV = () => {
@@ -233,8 +360,37 @@ export default function RecipesPage() {
         </div>
       </div>
 
-      {/* Recipes Table */}
-      <RecipesTable gridData={gridData} onCellClick={handleCellClick} onDataChange={setGridData} />
+      {/* Main Content Tabs */}
+      <Tabs defaultValue="recipes" className="w-full">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="recipes">Recipe Grid</TabsTrigger>
+          <TabsTrigger value="manage" className="gap-2">
+            <MdSettings className="w-4 h-4" />
+            Manage Materials & Methods
+          </TabsTrigger>
+        </TabsList>
+        
+        <TabsContent value="recipes" className="mt-6">
+          {isLoadingData ? (
+            <div className="flex items-center justify-center p-8">
+              <p className="text-muted-foreground">Loading data...</p>
+            </div>
+          ) : (
+            <RecipesTable gridData={gridData} onCellClick={handleCellClick} onDataChange={setGridData} />
+          )}
+        </TabsContent>
+        
+        <TabsContent value="manage" className="mt-6">
+          <MaterialsMethodsManager
+            materials={apiMaterials}
+            methods={apiMethods}
+            onMaterialsChange={handleMaterialsChange}
+            onMethodsChange={handleMethodsChange}
+            onAddMaterial={handleAddMaterial}
+            onAddMethod={handleAddMethod}
+          />
+        </TabsContent>
+      </Tabs>
 
       {/* Recipe Detail Drawer */}
       <RecipeDetailDrawer
@@ -252,6 +408,28 @@ export default function RecipesPage() {
           setGridData(data)
           setIsUploadOpen(false)
         }}
+      />
+
+      {/* Material Dialog */}
+      <MaterialDialog
+        isOpen={isMaterialDialogOpen}
+        onClose={() => {
+          setIsMaterialDialogOpen(false)
+          setEditingMaterial(null)
+        }}
+        onSave={handleSaveMaterial}
+        material={editingMaterial}
+      />
+
+      {/* Method Dialog */}
+      <MethodDialog
+        isOpen={isMethodDialogOpen}
+        onClose={() => {
+          setIsMethodDialogOpen(false)
+          setEditingMethod(null)
+        }}
+        onSave={handleSaveMethod}
+        method={editingMethod}
       />
     </div>
   )
