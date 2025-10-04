@@ -2,10 +2,13 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
 from app.core.db import get_db 
-from app.models.missions import MissionCreate, MissionOut
+from app.models.missions import MissionCreate, MissionOut, MissionUpdate
 from uuid import uuid4
+from pydantic import BaseModel
+from typing import Optional
 
 router = APIRouter(prefix="/missions", tags=["missions"])
+
 
 @router.get("", response_model=list[MissionOut])
 async def list_missions(db: AsyncSession = Depends(get_db)):
@@ -61,6 +64,30 @@ async def create_mission(payload: MissionCreate, db: AsyncSession = Depends(get_
     await db.commit()
     mission_dict = dict(rs.mappings().first())
     # Convert UUID objects to strings
+    if mission_dict.get('id'):
+        mission_dict['id'] = str(mission_dict['id'])
+    if mission_dict.get('owner_id'):
+        mission_dict['owner_id'] = str(mission_dict['owner_id'])
+    return mission_dict
+
+@router.patch("/{mission_id}", response_model=MissionOut)
+async def update_mission(mission_id: str, payload: MissionUpdate, db: AsyncSession = Depends(get_db)):
+    # Build dynamic update statement
+    update_fields = {k: v for k, v in payload.dict(exclude_unset=True).items()}
+    if not update_fields:
+        raise HTTPException(status_code=400, detail="No fields to update.")
+    set_clause = ", ".join([f"{key} = :{key}" for key in update_fields.keys()])
+    update_fields["id"] = mission_id
+    rs = await db.execute(text(f"""
+        update missions set {set_clause}
+        where id = :id
+        returning *;
+    """), update_fields)
+    await db.commit()
+    row = rs.mappings().first()
+    if not row:
+        raise HTTPException(status_code=404, detail="Mission not found")
+    mission_dict = dict(row)
     if mission_dict.get('id'):
         mission_dict['id'] = str(mission_dict['id'])
     if mission_dict.get('owner_id'):
