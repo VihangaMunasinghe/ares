@@ -21,7 +21,7 @@ class MetricBlock(BaseModel):
 class MetricsSummary(BaseModel):
     active_missions: MetricBlock
     total_recipes: MetricBlock
-    planned_items: MetricBlock
+    global_items: MetricBlock  # Changed from planned_items since items are now global
     pending_jobs: MetricBlock
 
 
@@ -30,16 +30,14 @@ async def get_summary_metrics(
     db: AsyncSession = Depends(get_db),
     mission_id: Optional[UUID] = Query(
         None,
-        description="If provided, Items & Jobs are filtered to this mission; Missions & Recipes remain global."
+        description="If provided, Jobs are filtered to this mission; Missions, Recipes & Items remain global."
     ),
 ):
-    # Build conditional WHEREs for items & jobs ONLY if mission_id is present.
-    item_where = "/* no mission filter */"
+    # Build conditional WHERE for jobs ONLY if mission_id is present.
     job_where = "/* no mission filter */"
     params: dict = {}
 
     if mission_id:
-        item_where = "where mi.mission_id = :mission_id"
         job_where = "where j.mission_id = :mission_id"
         params["mission_id"] = str(mission_id)  # asyncpg will coerce to uuid
 
@@ -60,14 +58,14 @@ async def get_summary_metrics(
         select
             count(*)                                                                            as recipes_total,
             count(*) filter (where created_at >= b.month_start)                                 as recipes_new_this_month
-        from recipes r
+        from recipes_global r
         cross join bounds b
     ),
     item_counts as (
         select
             count(*)                                                                            as items_total
-        from manifest_items mi
-        {item_where}
+        from items_global ig
+        /* Global items - no mission filter available */
     ),
     job_counts as (
         select
@@ -102,7 +100,7 @@ async def get_summary_metrics(
             count=int(row.get("recipes_total", 0)),
             delta=int(row.get("recipes_new_this_month", 0)),
         ),
-        planned_items=MetricBlock(
+        global_items=MetricBlock(
             count=int(row.get("items_total", 0)),
         ),
         pending_jobs=MetricBlock(

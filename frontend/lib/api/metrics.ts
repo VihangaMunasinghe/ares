@@ -9,7 +9,7 @@ export interface MetricBlock {
 export interface MetricsSummary {
   active_missions: MetricBlock
   total_recipes: MetricBlock
-  planned_items: MetricBlock
+  global_items: MetricBlock
   pending_jobs: MetricBlock
 }
 
