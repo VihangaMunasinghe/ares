@@ -63,10 +63,10 @@ export default function DashboardPage() {
       color: "green" 
     },
     { 
-      name: "Planned Items", 
-      value: metrics.planned_items.count.toString(), 
+      name: "Global Items", 
+      value: metrics.global_items.count.toString(), 
       icon: MdInventory, 
-      change: "Across all missions", 
+      change: "Available globally", 
       trend: "stable", 
       color: "orange" 
     },
