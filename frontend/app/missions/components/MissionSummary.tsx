@@ -6,7 +6,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { MdEdit, MdDelete, MdRocket, MdPeople, MdBuild, MdCalendarToday } from "react-icons/md"
-import type { Mission } from "@/types/mission"
+import { missionsApi, type Mission } from "@/lib/api/missions"
+import { toast } from "@/hooks/use-toast"
 
 interface MissionSummaryProps {
   mission: Mission
@@ -16,13 +17,25 @@ export function MissionSummary({ mission }: MissionSummaryProps) {
   const router = useRouter()
   const [isDeleting, setIsDeleting] = useState(false)
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (confirm("Are you sure you want to delete this mission? This action cannot be undone.")) {
       setIsDeleting(true)
-      // In a real app, this would call an API
-      setTimeout(() => {
+      try {
+        await missionsApi.deleteMission(mission.id)
+        toast({
+          title: "Success",
+          description: "Mission deleted successfully",
+        })
         router.push("/missions")
-      }, 500)
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : 'Failed to delete mission'
+        toast({
+          title: "Error",
+          description: errorMessage,
+          variant: "destructive",
+        })
+        setIsDeleting(false)
+      }
     }
   }
 
@@ -33,6 +46,8 @@ export function MissionSummary({ mission }: MissionSummaryProps) {
       case "Running":
         return "default"
       case "Completed":
+        return "secondary"
+      case "Archived":
         return "secondary"
     }
   }
@@ -45,8 +60,11 @@ export function MissionSummary({ mission }: MissionSummaryProps) {
             <h1 className="text-3xl font-bold text-foreground">{mission.name}</h1>
             <Badge variant={getStatusVariant(mission.status)}>{mission.status}</Badge>
           </div>
-          <p className="text-muted-foreground">{mission.description}</p>
+          <p className="text-muted-foreground">{mission.description || 'No description provided'}</p>
           <p className="text-sm text-muted-foreground">Mission ID: {mission.id}</p>
+          {mission.owner_id && (
+            <p className="text-sm text-muted-foreground">Owner ID: {mission.owner_id}</p>
+          )}
         </div>
         <div className="flex gap-2">
           <Button variant="outline" className="gap-2 bg-transparent">
@@ -85,6 +103,12 @@ export function MissionSummary({ mission }: MissionSummaryProps) {
               <span className="text-sm text-muted-foreground">Return:</span>
               <span className="text-sm font-medium">{mission.return_weeks}w</span>
             </div>
+            {mission.mission_start_date && (
+              <div className="flex justify-between">
+                <span className="text-sm text-muted-foreground">Start Date:</span>
+                <span className="text-sm font-medium">{new Date(mission.mission_start_date).toLocaleDateString()}</span>
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -129,7 +153,9 @@ export function MissionSummary({ mission }: MissionSummaryProps) {
               <span className="text-sm text-muted-foreground">Tools Available:</span>
               <span className="text-sm font-medium">{mission.tools_available.length}</span>
             </div>
-            <div className="text-xs text-muted-foreground mt-2">{mission.tools_available.join(", ")}</div>
+            <div className="text-xs text-muted-foreground mt-2">
+              {mission.tools_available.length > 0 ? mission.tools_available.join(", ") : "No tools specified"}
+            </div>
           </CardContent>
         </Card>
 
@@ -137,21 +163,25 @@ export function MissionSummary({ mission }: MissionSummaryProps) {
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium flex items-center gap-2">
               <MdRocket className="w-4 h-4 text-muted-foreground" />
-              Metadata
+              Production Capacity
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
-            <div className="space-y-1">
-              <span className="text-sm text-muted-foreground">Created By:</span>
-              <p className="text-sm font-medium">{mission.created_by}</p>
+            <div className="flex justify-between">
+              <span className="text-sm text-muted-foreground">Weekly:</span>
+              <span className="text-sm font-medium">{mission.printer_capacity_kg_per_week} kg</span>
             </div>
-            <div className="space-y-1">
-              <span className="text-sm text-muted-foreground">Created:</span>
-              <p className="text-sm font-medium">{new Date(mission.created_at).toLocaleDateString()}</p>
+            <div className="flex justify-between">
+              <span className="text-sm text-muted-foreground">Surface Total:</span>
+              <span className="text-sm font-medium">
+                {mission.printer_capacity_kg_per_week * mission.surface_weeks} kg
+              </span>
             </div>
-            <div className="space-y-1">
-              <span className="text-sm text-muted-foreground">Updated:</span>
-              <p className="text-sm font-medium">{new Date(mission.updated_at).toLocaleDateString()}</p>
+            <div className="flex justify-between">
+              <span className="text-sm text-muted-foreground">Mission Total:</span>
+              <span className="text-sm font-medium">
+                {mission.printer_capacity_kg_per_week * mission.duration_weeks} kg
+              </span>
             </div>
           </CardContent>
         </Card>
