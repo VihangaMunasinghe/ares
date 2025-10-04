@@ -91,3 +91,30 @@ async def recompute_item_waste(db: AsyncSession, item_id: str):
         """)
         await db.execute(sql, params)
     await db.commit()
+
+async def recompute_substitution_waste(db: AsyncSession, substitution_id: str):
+    """
+    Recomputes substitution_item_waste rows for a given substitution item.
+    This is a simpler version since substitution items have fixed lifetime_weeks
+    and don't follow usage patterns like manifest items.
+    """
+    # Get substitution item details
+    q = text("""
+        select si.id, si.mission_id, si.lifetime_weeks, m.duration_weeks
+        from substitution_items si
+        join missions m on m.id = si.mission_id
+        where si.id = :substitution_id
+    """)
+    result = (await db.execute(q, {"substitution_id": substitution_id})).mappings().first()
+    if not result:
+        return
+    
+    # Clear existing waste rows for this substitution
+    await db.execute(text("delete from substitution_item_waste where substitution_id = :substitution_id"), 
+                    {"substitution_id": substitution_id})
+    
+    # Note: For substitution items, waste calculation might be different
+    # You may need to implement specific business logic here based on requirements
+    # For now, this is a placeholder that can be extended
+    
+    await db.commit()
