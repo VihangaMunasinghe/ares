@@ -1,535 +1,607 @@
-# mars_recycling_milp.py
-# Requires: pyomo, (solver: CBC/gurobi/cplex). Example run:
-#   python -m pip install pyomo
-#   # install coin-or-cbc or use gurobi if available
-#   python mars_recycling_milp.py
+# mars_recycling_optimizer.py
+# Requires: pyomo + a solver (cbc/glpk/gurobi/cplex)
+# Usage:
+#   from mars_recycling_optimizer import MarsRecyclingOptimizer
+#   opt = MarsRecyclingOptimizer(preferred_solvers=['cbc','glpk'])
+#   opt.setup(data_dict)
+#   opt.solve(tee=True)
+#   results = opt.get_results()
 
-from pyomo.environ import *
-from ortools.linear_solver import pywraplp
+from copy import deepcopy
+from pyomo.environ import (
+    ConcreteModel, Set, Var, NonNegativeReals, Binary, ConstraintList,
+    Objective, SolverFactory, value, maximize
+)
 
-class OptimizationModel:
-    def __init__(self):
-        self.solvers = ['cbc', 'glpk', 'cplex', 'gurobi']
+
+class MarsRecyclingOptimizer:
+    """
+    Pyomo MILP for Mars mission recycling + substitution:
+      - Items (carried) and Substitutes (craftable)
+      - Waste is GENERATED FROM item/substitute usage (after lifetime)
+      - Recycling methods convert raw materials -> outputs
+      - Outputs are consumed to build substitutes
+      - Resources: crew, energy, method capacity, availability, inventory caps
+    API:
+      - setup(data: dict)    # builds model (normalizes input)
+      - solve(tee=False)     # runs solver
+      - get_results() -> dict
+    """
+
+    def __init__(self, preferred_solvers=None):
+        self.solvers = preferred_solvers or ["cbc", "glpk", "cplex", "gurobi"]
         self.model = None
         self.solver = None
         self.solver_results = None
+        self._data = None
 
+    # --------------------------
+    # Public API
+    # --------------------------
     def setup(self, data: dict):
-        if not self._validate_data(data):
-            raise ValueError("Invalid data")
+        """Normalize input, validate, choose solver, and build model."""
+        normalized = self._normalize_input(data)
+        if not self._validate_input(normalized):
+            raise ValueError("Input validation failed (see printed errors).")
+        self._data = normalized
+        self.solver = self._select_solver()
+        if self.solver is None:
+            raise RuntimeError("No solver available. Install CBC/GLPK/CPLEX/Gurobi.")
+        self.model = self._build_model(normalized)
+        print("Model built successfully.")
 
-        # Initialize solver
-        opt = None
-        for solver_name in self.solvers:
+    def solve(self, tee=False):
+        if self.model is None or self.solver is None:
+            raise RuntimeError("Call setup(data) before solve().")
+        self.solver_results = self.solver.solve(self.model, tee=tee)
+        print("Solve finished.")
+
+    def get_results(self) -> dict:
+        if self.model is None:
+            raise RuntimeError("Model not built/solved.")
+        return self._extract_results()
+
+    # --------------------------
+    # Input normalization
+    # --------------------------
+    def _normalize_input(self, data: dict) -> dict:
+        """Normalize comma-string tuple keys into real tuples and fill defaults."""
+        d = deepcopy(data)
+
+        def parse_key_string(s):
+            parts = [p.strip() for p in s.split(",")]
+            parsed = []
+            for p in parts:
+                if p.isdigit():
+                    parsed.append(int(p))
+                else:
+                    try:
+                        pf = float(p)
+                        parsed.append(pf)
+                    except:
+                        parsed.append(p)
+            return tuple(parsed)
+
+        # dictionaries that should have tuple keys (string keys like "plastic,1" allowed)
+        tuple_maps = [
+            ("item_demands", 2),
+            ("yields", 3),
+            ("max_capacity", 2),
+            ("availability", 2),
+            ("item_waste", 2),
+            ("substitute_make_recipe", 2),
+        ]
+        for key, _len in tuple_maps:
+            if key in d and isinstance(d[key], dict):
+                normalized_dict = {}
+                for k, v in d[key].items():
+                    if isinstance(k, str):
+                        tk = parse_key_string(k)
+                    elif isinstance(k, (list, tuple)):
+                        tk = tuple(int(x) if isinstance(x, str) and x.isdigit() else x for x in k)
+                    else:
+                        tk = (k,)
+                    normalized_dict[tk] = v
+                d[key] = normalized_dict
+
+        # normalize time dictionaries keys (crew_available / energy_available) -> int weeks
+        for tdict in ("crew_available", "energy_available"):
+            if tdict in d and isinstance(d[tdict], dict):
+                new = {}
+                for wk, val in d[tdict].items():
+                    wk_parsed = int(wk) if isinstance(wk, str) and wk.isdigit() else wk
+                    new[wk_parsed] = val
+                d[tdict] = new
+
+        # ensure nested structures exist
+        d.setdefault("item_demands", {})
+        d.setdefault("item_waste", {})
+        d.setdefault("substitute_make_recipe", {})
+        d.setdefault("substitute_assembly_crew", {})
+        d.setdefault("substitute_assembly_energy", {})
+        d.setdefault("substitute_values", {})
+        d.setdefault("substitute_mass", {})
+        d.setdefault("weights", {})
+
+        # ensure initial_inventory contains sub-keys
+        d.setdefault("initial_inventory", {})
+        d["initial_inventory"].setdefault("materials", {})
+        d["initial_inventory"].setdefault("outputs", {})
+        d["initial_inventory"].setdefault("items", {})
+        d["initial_inventory"].setdefault("substitutes", {})
+
+        # ensure substitutes_can_replace exists
+        d.setdefault("substitutes_can_replace", {})
+
+        return d
+
+    # --------------------------
+    # Input validation
+    # --------------------------
+    def _validate_input(self, d: dict) -> bool:
+        errors = []
+        # required lists
+        for name in ("materials", "methods", "outputs", "items", "substitutes", "weeks"):
+            if name not in d or not isinstance(d[name], list) or len(d[name]) == 0:
+                errors.append(f"'{name}' must be a non-empty list")
+
+        # weeks must be ints
+        if "weeks" in d:
+            for w in d["weeks"]:
+                if not isinstance(w, int):
+                    errors.append("All entries in 'weeks' must be integers")
+
+        # check tuple dicts consistency: yields, max_capacity, availability
+        for (mat, r, out), v in d.get("yields", {}).items():
+            if mat not in d["materials"]:
+                errors.append(f"yields: material '{mat}' not in materials")
+            if r not in d["methods"]:
+                errors.append(f"yields: method '{r}' not in methods")
+            if out not in d["outputs"]:
+                errors.append(f"yields: output '{out}' not in outputs")
+            if not isinstance(v, (int, float)) or v < 0:
+                errors.append(f"yields value for ({mat},{r},{out}) must be >= 0")
+
+        for (r, wk), v in d.get("max_capacity", {}).items():
+            if r not in d["methods"]:
+                errors.append(f"max_capacity method '{r}' not in methods")
+            if wk not in d["weeks"]:
+                errors.append(f"max_capacity week '{wk}' not in weeks")
+
+        for (r, wk), v in d.get("availability", {}).items():
+            if r not in d["methods"]:
+                errors.append(f"availability method '{r}' not in methods")
+            if wk not in d["weeks"]:
+                errors.append(f"availability week '{wk}' not in weeks")
+            if v not in (0, 1):
+                errors.append(f"availability value for ({r},{wk}) must be 0 or 1")
+
+        # item_demands keys (item, week)
+        for (item, wk), v in d.get("item_demands", {}).items():
+            if item not in d["items"]:
+                errors.append(f"item_demands: '{item}' not in items")
+            if wk not in d["weeks"]:
+                errors.append(f"item_demands: week '{wk}' not in weeks")
+            if not isinstance(v, (int, float)) or v < 0:
+                errors.append(f"item_demands value for ({item},{wk}) must be >= 0")
+
+        # item_waste (item, material)
+        for (item, mat), v in d.get("item_waste", {}).items():
+            if item not in d["items"]:
+                errors.append(f"item_waste: item '{item}' not found")
+            if mat not in d["materials"]:
+                errors.append(f"item_waste: material '{mat}' not found")
+            if not isinstance(v, (int, float)) or v < 0:
+                errors.append(f"item_waste value for ({item},{mat}) must be >= 0")
+
+        # substitute_make_recipe (sub, output)
+        for (sub, out), v in d.get("substitute_make_recipe", {}).items():
+            if sub not in d["substitutes"]:
+                errors.append(f"substitute_make_recipe: substitute '{sub}' not in substitutes")
+            if out not in d["outputs"]:
+                errors.append(f"substitute_make_recipe: output '{out}' not in outputs")
+            if not isinstance(v, (int, float)) or v < 0:
+                errors.append(f"substitute_make_recipe value for ({sub},{out}) must be >= 0")
+
+        # substitutes_can_replace
+        for item, subs in d.get("substitutes_can_replace", {}).items():
+            if item not in d.get("items", []):
+                errors.append(f"substitutes_can_replace: '{item}' not in items")
+            for s in subs:
+                if s not in d.get("substitutes", []):
+                    errors.append(f"substitutes_can_replace: '{s}' not in substitutes")
+
+        # basic numeric dictionaries existence & types are assumed — not all fields mandatory
+
+        if errors:
+            print("Input validation errors:")
+            for e in errors:
+                print("  -", e)
+            return False
+
+        print("Input validation passed.")
+        return True
+
+    # --------------------------
+    # Solver selection
+    # --------------------------
+    def _select_solver(self):
+        for name in self.solvers:
             try:
-                opt = SolverFactory(solver_name)
-                if opt.available():
-                    print(f"Using solver: {solver_name}")
-                    self.solver = opt
-                    break
-            except:
+                solver = SolverFactory(name)
+                if solver.available():
+                    print(f"Selected solver: {name}")
+                    return solver
+            except Exception:
                 continue
+        return None
 
-        if opt is None or not opt.available():
-            raise ValueError("No suitable solver found. Please install CBC, GLPK, CPLEX, or Gurobi")
-
-        self.model = self._create_model(data)
-
-    def _create_model(self, data: dict):
-
+    # --------------------------
+    # Model building
+    # --------------------------
+    def _build_model(self, d: dict):
         model = ConcreteModel()
-        # Index sets
-        materials = data['materials']
-        methods = data['methods']
-        outputs = data['outputs']
-        weeks = data['weeks']
-        
+
+        # simplify local references
+        materials = d["materials"]
+        methods = d["methods"]
+        outputs = d["outputs"]
+        items = d["items"]
+        subs = d["substitutes"]
+        weeks = sorted(d["weeks"])
+        first_week = weeks[0]
+
         model.M = Set(initialize=materials)
         model.R = Set(initialize=methods)
         model.O = Set(initialize=outputs)
+        model.K = Set(initialize=items)
+        model.S = Set(initialize=subs)
         model.T = Set(initialize=weeks)
 
-        # Parameters from data
-        W = data['waste_generated']  # {(material, week): kg_waste}
-        S_in0 = data['initial_inventory']['materials']  # {material: kg}
-        S_out0 = data['initial_inventory']['outputs']   # {output: kg}
-        N = data['demands']  # {(output, week): kg}
-        Y = data['yields']  # {(material, method, output): kg_output_per_kg_input}
-        R_max = data['max_capacity']  # {(method, week): kg}
-        M = data['min_lot_size']  # {method: kg}
-        C_crew = data['crew_cost']  # {method: hours_per_kg}
-        C_energy = data['energy_cost']  # {method: units_per_kg}
-        Crew = data['crew_available']  # {week: hours}
-        Energy = data['energy_available']  # {week: units}
-        Cap_out = data['output_capacity']  # {output: kg}
-        Cap_in = data['input_capacity']   # {material: kg}
-        avail = data['availability']  # {(method, week): 0 or 1}
-        RiskCost = data['risk_cost']  # {method: cost_per_kg}
-        V = data['output_values']  # {output: value_per_kg}
-        
-        # Objective weights
-        w_mass = data['weights']['mass']
-        w_value = data['weights']['value']
-        w_crew = data['weights']['crew']
-        w_energy = data['weights']['energy']
-        w_risk = data['weights']['risk']
+        # convenient dict accessors with defaults
+        S_in0 = d.get("initial_inventory", {}).get("materials", {})
+        S_out0 = d.get("initial_inventory", {}).get("outputs", {})
+        S_items0 = d.get("initial_inventory", {}).get("items", {})
+        S_subs0 = d.get("initial_inventory", {}).get("substitutes", {})
 
-        # Decision variables with clear names
-        model.material_processed_by_method = Var(model.M, model.R, model.T, domain=NonNegativeReals)  # kg material processed by method in week
-        model.total_processed_by_method = Var(model.R, model.T, domain=NonNegativeReals)  # kg total processed by method in week
-        model.is_method_running = Var(model.R, model.T, domain=Binary)  # binary: is method running in week
-        model.material_inventory = Var(model.M, model.T, domain=NonNegativeReals)  # raw waste inventory end-week
-        model.output_inventory = Var(model.O, model.T, domain=NonNegativeReals)  # output inventory end-week
-        model.output_produced = Var(model.O, model.T, domain=NonNegativeReals)  # output produced in week
+        item_mass = d.get("item_mass", {})
+        sub_mass = d.get("substitute_mass", {})
+        item_demands = d.get("item_demands", {})  # keys (item, week)
+        item_lifetime = d.get("item_lifetime", {})  # item->int
+        sub_lifetime = d.get("substitute_lifetime", {})  # sub->int
+        item_waste = d.get("item_waste", {})
+        sub_waste = d.get("substitute_waste", {})
+        sub_recipe = d.get("substitute_make_recipe", {})
 
+        yields = d.get("yields", {})
+        R_max = d.get("max_capacity", {})
+        M_min = d.get("min_lot_size", {})
+        C_crew = d.get("crew_cost", {})
+        C_energy = d.get("energy_cost", {})
+        Crew = d.get("crew_available", {})
+        Energy = d.get("energy_available", {})
+        Cap_out = d.get("output_capacity", {})
+        Cap_in = d.get("input_capacity", {})
+        avail = d.get("availability", {})
+        RiskCost = d.get("risk_cost", {})
+        output_values = d.get("output_values", {})
+        sub_values = d.get("substitute_values", {})
+        substitutes_can_replace = d.get("substitutes_can_replace", {})
+
+        weights = d.get("weights", {})
+        w_mass = weights.get("mass", 0.0)
+        w_value = weights.get("value", 0.0)
+        w_crew = weights.get("crew", 0.0)
+        w_energy = weights.get("energy", 0.0)
+        w_risk = weights.get("risk", 0.0)
+        w_make = weights.get("make", 0.0)
+        w_carry = weights.get("carry", 0.0)  # typically negative to penalize using carried mass
+        w_short = weights.get("shortage", 10000.0)
+
+        # -------------------------
+        # Decision variables
+        # -------------------------
+        model.P = Var(model.M, model.R, model.T, domain=NonNegativeReals)   # material processed by method (kg)
+        model.Q = Var(model.R, model.T, domain=NonNegativeReals)            # total processed per method-week
+        model.y = Var(model.R, model.T, domain=Binary)                      # method on/off
+
+        model.Oprod = Var(model.O, model.T, domain=NonNegativeReals)        # outputs produced in week
+        model.Oinv = Var(model.O, model.T, domain=NonNegativeReals)         # outputs inventory end-week
+
+        model.Minv = Var(model.M, model.T, domain=NonNegativeReals)         # material inventory end-week
+
+        model.make_sub = Var(model.S, model.T, domain=NonNegativeReals)    # units made of substitute s in week t
+        model.sub_inv = Var(model.S, model.T, domain=NonNegativeReals)     # substitute inventory end-week
+
+        model.sub_used_for = Var(model.S, model.K, model.T, domain=NonNegativeReals)  # units of sub s used for item k in week t
+
+        model.carried_used = Var(model.K, model.T, domain=NonNegativeReals)  # carried units used
+        model.carried_inv = Var(model.K, model.T, domain=NonNegativeReals)   # carried inventory end-week
+
+        model.item_used = Var(model.K, model.T, domain=NonNegativeReals)    # total item usage (carried + substitutes)
+        model.item_short = Var(model.K, model.T, domain=NonNegativeReals)   # shortages
+
+        # -------------------------
+        # Auxiliary: prev-week mapping (safe in case weeks are non-1-start)
+        # -------------------------
+        prev = {}
+        for i in range(1, len(weeks)):
+            prev[weeks[i]] = weeks[i-1]
+
+        # -------------------------
         # Constraints
-        # Link total processed to individual materials (total method capacity equals sum of materials)
-        model.link_total_processed = ConstraintList()
-        for r in methods:
-            for t in weeks:
-                model.link_total_processed.add(
-                    model.total_processed_by_method[r,t] == sum(model.material_processed_by_method[m,r,t] for m in materials)
+        # -------------------------
+        model.con_link_Q = ConstraintList()
+        for r in model.R:
+            for t in model.T:
+                model.con_link_Q.add(model.Q[r, t] == sum(model.P[m, r, t] for m in model.M))
+
+        # outputs from processing (yields)
+        model.con_output_prod = ConstraintList()
+        for o in model.O:
+            for t in model.T:
+                model.con_output_prod.add(
+                    model.Oprod[o, t] ==
+                    sum(yields.get((m, r, o), 0.0) * model.P[m, r, t] for m in model.M for r in model.R)
                 )
 
-        # Output from inputs (production yield constraints)
-        model.output_production = ConstraintList()
-        for o in outputs:
-            for t in weeks:
-                model.output_production.add(
-                    model.output_produced[o,t] == sum(
-                        Y.get((m,r,o), 0.0) * model.material_processed_by_method[m,r,t] 
-                        for m in materials for r in methods
-                    )
-                )
+        # output inventory: prev + produced - consumed_by_substitute_making
+        model.con_output_inv = ConstraintList()
+        for o in model.O:
+            for t in model.T:
+                prev_inv = S_out0.get(o, 0.0) if t == first_week else model.Oinv[o, prev[t]]
+                consumes = sum(sub_recipe.get((s, o), 0.0) * model.make_sub[s, t] for s in model.S)
+                model.con_output_inv.add(model.Oinv[o, t] == prev_inv + model.Oprod[o, t] - consumes)
+                # capacity if specified
+                if o in Cap_out:
+                    model.con_output_inv.add(model.Oinv[o, t] <= Cap_out[o])
 
-        # Inventory dynamics - raw waste
-        model.material_inventory_balance = ConstraintList()
-        for m in materials:
-            for t in weeks:
-                if t == 1:
-                    prev_inventory = S_in0.get(m, 0.0)
+        # material inventory: prev + base_waste + item/substitute-derived waste - processed
+        model.con_material_inv = ConstraintList()
+        for m in model.M:
+            for t in model.T:
+                prev_inv = S_in0.get(m, 0.0) if t == first_week else model.Minv[m, prev[t]]
+
+                # contributions from used carried items whose lifetime ends now
+                carried_waste = 0
+                for k in model.K:
+                    life_k = int(d.get("item_lifetime", {}).get(k, 0))
+                    # if usage at tau generates waste at t: tau + life_k == t
+                    for tau in model.T:
+                        if tau + life_k == t:
+                            carried_waste += item_waste.get((k, m), 0.0) * model.carried_used[k, tau]
+
+                # contributions from substitutes used earlier whose lifetime expires now
+                subs_waste = 0
+                for s in model.S:
+                    life_s = int(d.get("substitute_lifetime", {}).get(s, 0))
+                    for tau in model.T:
+                        if tau + life_s == t:
+                            # sum over which item that substitute was used for
+                            subs_waste += sum(sub_waste.get((s, m), 0.0) * model.sub_used_for[s, k, tau] for k in model.K)
+
+                processed = sum(model.P[m, r, t] for r in model.R)
+                model.con_material_inv.add(model.Minv[m, t] == prev_inv + carried_waste + subs_waste - processed)
+                # capacity if specified
+                if m in Cap_in:
+                    model.con_material_inv.add(model.Minv[m, t] <= Cap_in[m])
+
+        # substitute inventories
+        model.con_sub_inv = ConstraintList()
+        for s in model.S:
+            for t in model.T:
+                prev_s = S_subs0.get(s, 0.0) if t == first_week else model.sub_inv[s, prev[t]]
+                used = sum(model.sub_used_for[s, k, t] for k in model.K)
+                model.con_sub_inv.add(model.sub_inv[s, t] == prev_s + model.make_sub[s, t] - used)
+
+        # carried item inventories (decrease when used)
+        model.con_carried_inv = ConstraintList()
+        for k in model.K:
+            for t in model.T:
+                if t == first_week:
+                    init = float(S_items0.get(k, 0.0))
+                    model.con_carried_inv.add(model.carried_inv[k, t] == init - model.carried_used[k, t])
                 else:
-                    prev_inventory = model.material_inventory[m,t-1]
-                
-                model.material_inventory_balance.add(
-                    model.material_inventory[m,t] == (
-                        prev_inventory + W.get((m,t), 0.0) - 
-                        sum(model.material_processed_by_method[m,r,t] for r in methods)
-                    )
+                    model.con_carried_inv.add(model.carried_inv[k, t] == model.carried_inv[k, prev[t]] - model.carried_used[k, t])
+
+        # usage composition and demand satisfaction
+        model.con_usage_demand = ConstraintList()
+        for k in model.K:
+            for t in model.T:
+                # item_used = carried_used + substitutes used for this item
+                model.con_usage_demand.add(
+                    model.item_used[k, t] == model.carried_used[k, t] + sum(model.sub_used_for[s, k, t] for s in model.S)
                 )
-                model.material_inventory_balance.add(model.material_inventory[m,t] <= Cap_in.get(m, float('inf')))
+                demand_val = float(item_demands.get((k, t), 0.0))
+                model.con_usage_demand.add(model.item_used[k, t] + model.item_short[k, t] == demand_val)
 
-        # Output inventory dynamics
-        model.output_inventory_balance = ConstraintList()
-        for o in outputs:
-            for t in weeks:
-                if t == 1:
-                    prev_inventory = S_out0.get(o, 0.0)
-                else:
-                    prev_inventory = model.output_inventory[o,t-1]
-                
-                model.output_inventory_balance.add(
-                    model.output_inventory[o,t] == (
-                        prev_inventory + model.output_produced[o,t] - N.get((o,t), 0.0)
-                    )
-                )
-                model.output_inventory_balance.add(model.output_inventory[o,t] <= Cap_out.get(o, float('inf')))
+        # disallow substitute usage if not allowed by mapping
+        model.con_sub_allowed = ConstraintList()
+        for s in model.S:
+            for k in model.K:
+                allowed = s in substitutes_can_replace.get(k, [])
+                if not allowed:
+                    for t in model.T:
+                        model.con_sub_allowed.add(model.sub_used_for[s, k, t] == 0)
 
-        # Capacity & availability & minimum lot size constraints
-        model.processing_capacity = ConstraintList()
-        for r in methods:
-            for t in weeks:
-                model.processing_capacity.add(model.total_processed_by_method[r,t] <= R_max.get((r,t), 0.0) * model.is_method_running[r,t])
-                
-                if avail.get((r,t), 1) == 0:
-                    model.processing_capacity.add(model.is_method_running[r,t] == 0)
-                
-                model.processing_capacity.add(M.get(r, 0.0) * model.is_method_running[r,t] <= model.total_processed_by_method[r,t])
+        # processing capacity, availability, min-lot
+        model.con_proc_cap = ConstraintList()
+        for r in model.R:
+            for t in model.T:
+                rmax = float(R_max.get((r, t), 0.0))
+                model.con_proc_cap.add(model.Q[r, t] <= rmax * model.y[r, t])
+                if avail.get((r, t), 1) == 0:
+                    model.con_proc_cap.add(model.y[r, t] == 0)
+                minlot = float(M_min.get(r, 0.0))
+                if minlot > 0:
+                    model.con_proc_cap.add(minlot * model.y[r, t] <= model.Q[r, t])
 
-        # Don't process more material than available at start of week
-        model.material_availability = ConstraintList()
-        for m in materials:
-            for t in weeks:
-                if t == 1:
-                    available_material = S_in0.get(m, 0.0) + W.get((m,t), 0.0)
-                else:
-                    available_material = model.material_inventory[m,t-1] + W.get((m,t), 0.0)
-                
-                model.material_availability.add(
-                    sum(model.material_processed_by_method[m,r,t] for r in methods) <= available_material
-                )
+        # link Q and P already with con_link_Q
 
-        # Resource constraints per week (crew and energy limitations)
-        model.resource_limits = ConstraintList()
-        for t in weeks:
-            model.resource_limits.add(
-                sum(C_crew.get(r, 0.0) * model.total_processed_by_method[r,t] for r in methods) <= Crew.get(t, float('inf'))
-            )
-            model.resource_limits.add(
-                sum(C_energy.get(r, 0.0) * model.total_processed_by_method[r,t] for r in methods) <= Energy.get(t, float('inf'))
-            )
+        # resource constraints (crew & energy) include substitute assembly labor
+        model.con_resource = ConstraintList()
+        for t in model.T:
+            recycle_crew = sum(C_crew.get(r, 0.0) * model.Q[r, t] for r in model.R)
+            recycle_energy = sum(C_energy.get(r, 0.0) * model.Q[r, t] for r in model.R)
+            assembly_crew = sum(d.get("substitute_assembly_crew", {}).get(s, 0.0) * model.make_sub[s, t] for s in model.S)
+            assembly_energy = sum(d.get("substitute_assembly_energy", {}).get(s, 0.0) * model.make_sub[s, t] for s in model.S)
+            model.con_resource.add(recycle_crew + assembly_crew <= float(Crew.get(t, float("inf"))))
+            model.con_resource.add(recycle_energy + assembly_energy <= float(Energy.get(t, float("inf"))))
 
-        # Deadlines (cumulative production requirements)
-        model.mandatory_deadlines = ConstraintList()
-        for deadline_info in data.get('deadlines', []):
-            output = deadline_info['output']
-            deadline_week = deadline_info['week']
-            required_amount = deadline_info['amount']
-            
-            model.mandatory_deadlines.add(
-                sum(
-                    model.output_produced[output, tau] for tau in weeks 
-                    if tau <= deadline_week
-                ) >= required_amount - S_out0.get(output, 0.0)
-            )
+        # deadlines: cumulative usage up to deadline >= required
+        model.con_deadlines = ConstraintList()
+        for dl in d.get("deadlines", []):
+            if "item" in dl:
+                item = dl["item"]
+                wk = int(dl["week"])
+                amt = float(dl["amount"])
+                model.con_deadlines.add(sum(model.item_used[item, tau] for tau in model.T if tau <= wk) >= amt)
 
-        # Objective function (maximize value and mass saved, minimize costs)
-        total_value = sum(V.get(o, 0.0) * model.output_produced[o,t] for o in outputs for t in weeks)
-        mass_saved = sum(model.output_produced[o,t] for o in outputs for t in weeks)
-        total_crew_cost = sum(C_crew.get(r, 0.0) * model.total_processed_by_method[r,t] for r in methods for t in weeks)
-        total_energy_cost = sum(C_energy.get(r, 0.0) * model.total_processed_by_method[r,t] for r in methods for t in weeks)
-        total_risk_cost = sum(RiskCost.get(r, 0.0) * model.total_processed_by_method[r,t] for r in methods for t in weeks)
+        # -------------------------
+        # Objective
+        # -------------------------
+        total_output_value = sum(output_values.get(o, 0.0) * model.Oprod[o, t] for o in model.O for t in model.T)
+        total_output_mass = sum(model.Oprod[o, t] for o in model.O for t in model.T)
+        total_crew_cost = sum(C_crew.get(r, 0.0) * model.Q[r, t] for r in model.R for t in model.T)
+        total_energy_cost = sum(C_energy.get(r, 0.0) * model.Q[r, t] for r in model.R for t in model.T)
+        total_risk_cost = sum(RiskCost.get(r, 0.0) * model.Q[r, t] for r in model.R for t in model.T)
+        substitutes_value = sum(sub_values.get(s, 0.0) * model.make_sub[s, t] for s in model.S for t in model.T)
+        carried_mass_used = sum(item_mass.get(k, 0.0) * model.carried_used[k, t] for k in model.K for t in model.T)
+        total_shortage = sum(model.item_short[k, t] for k in model.K for t in model.T)
 
-        model.objective_function = Objective(
-            expr = (w_mass * mass_saved + w_value * total_value - 
-                   w_crew * total_crew_cost - w_energy * total_energy_cost - w_risk * total_risk_cost),
+        # Note: w_carry expected typically negative to **penalize** using carried items (i.e. prefer making substitutes).
+        model.objective = Objective(
+            expr=(
+                w_mass * total_output_mass
+                + w_value * total_output_value
+                - w_crew * total_crew_cost
+                - w_energy * total_energy_cost
+                - w_risk * total_risk_cost
+                + w_make * substitutes_value
+                + w_carry * carried_mass_used
+                - w_short * total_shortage
+            ),
             sense=maximize
         )
 
         return model
 
-    def solve(self):
-        if self.model is None or self.solver is None:
-            raise ValueError("Model not properly initialized. Call setup() first.")
-        
-        self.solver_results = self.solver.solve(self.model, tee=True)
+    # --------------------------
+    # Extract results
+    # --------------------------
+    def _extract_results(self) -> dict:
+        m = self.model
+        d = self._data
+        weeks = sorted(d["weeks"])
+        materials = d["materials"]
+        methods = d["methods"]
+        outputs = d["outputs"]
+        items = d["items"]
+        subs = d["substitutes"]
 
-    def get_results(self, data):
-        """
-        Get structured results from the solved optimization model
-        
-        Args:
-            data: Original data dictionary used to setup the model
-            solver_results: Optional solver results object for status information
-            
-        Returns:
-            dict: Structured results containing objective value, schedule, and outputs
-        """
-        if self.model is None:
-            raise ValueError("Model not solved yet.")
-        
-        weeks = data['weeks']
-        materials = data['materials']
-        methods = data['methods']
-        outputs = data['outputs']
-        
-        # Extract schedule
+        def sv(x):
+            # Prefer direct .value when available to avoid Pyomo error logs on uninitialized vars
+            if hasattr(x, "value"):
+                try:
+                    v_attr = x.value
+                    return float(v_attr) if v_attr is not None else 0.0
+                except Exception:
+                    return 0.0
+            # Fallback for expressions/objectives/params without .value
+            try:
+                v = value(x)
+                return float(v) if v is not None else 0.0
+            except Exception:
+                return 0.0
+
         schedule = []
         for t in weeks:
-            week_data = {'week': t, 'methods': {}}
-            for method in methods:
-                week_data['methods'][method] = {
-                    'processed_kg': float(value(self.model.total_processed_by_method[method, t])),
-                    'is_running': int(value(self.model.is_method_running[method, t])),
-                    'materials_processed': {}
+            t_entry = {"week": t, "methods": {}}
+            for r in methods:
+                t_entry["methods"][r] = {
+                    "processed_kg": sv(m.Q[r, t]),
+                    "is_running": int(round(sv(m.y[r, t]))),
+                    "by_material": {mat: sv(m.P[mat, r, t]) for mat in materials}
                 }
-                # Add individual material processing for this method
-                for material in materials:
-                    week_data['methods'][method]['materials_processed'][material] = float(
-                        value(self.model.material_processed_by_method[material, method, t])
-                    )
-            schedule.append(week_data)
+            schedule.append(t_entry)
+
+        outputs_list = []
+        for o in outputs:
+            outputs_list.append({
+                "output": o,
+                "weeks": [{"week": t, "produced_kg": sv(m.Oprod[o, t]), "inventory_kg": sv(m.Oinv[o, t])} for t in weeks]
+            })
+
+        substitutes_table = []
+        for s in subs:
+            substitutes_table.append({
+                "substitute": s,
+                "weeks": [{"week": t, "made": sv(m.make_sub[s, t]), "inventory": sv(m.sub_inv[s, t]), "used_for": {k: sv(m.sub_used_for[s, k, t]) for k in items}} for t in weeks]
+            })
+
+        items_table = []
+        for k in items:
+            items_table.append({
+                "item": k,
+                "weeks": [{"week": t, "used_total": sv(m.item_used[k, t]), "used_carried": sv(m.carried_used[k, t]), "shortage": sv(m.item_short[k, t])} for t in weeks]
+            })
+
+        # Calculate substitute breakdown
+        substitute_breakdown = {}
+        for s in subs:
+            total_made = sum(sv(m.make_sub[s, t]) for t in weeks)
+            substitute_breakdown[s] = total_made
+
+        # Calculate weight loss from carried items
+        item_mass = d.get("item_mass", {})
+        S_items0 = d.get("initial_inventory", {}).get("items", {})
         
-        # Extract outputs
-        output_data = []
-        for output in outputs:
-            output_info = {'output': output, 'weeks': []}
-            for t in weeks:
-                output_info['weeks'].append({
-                    'week': t,
-                    'produced_kg': float(value(self.model.output_produced[output, t])),
-                    'inventory_kg': float(value(self.model.output_inventory[output, t]))
-                })
-            output_data.append(output_info)
+        carried_weight_loss = {}
+        total_weight_loss = 0.0
+        total_initial_carriage_weight = 0.0
+        total_final_carriage_weight = 0.0
         
-        # Extract material inventory
-        material_inventory = []
-        for material in materials:
-            material_info = {'material': material, 'weeks': []}
-            for t in weeks:
-                material_info['weeks'].append({
-                    'week': t,
-                    'inventory_kg': float(value(self.model.material_inventory[material, t]))
-                })
-            material_inventory.append(material_info)
-        
-        # Calculate summary statistics
-        total_processed = sum(
-            value(self.model.total_processed_by_method[method, t]) 
-            for method in methods for t in weeks
-        )
-        
-        total_produced = sum(
-            value(self.model.output_produced[output, t]) 
-            for output in outputs for t in weeks
-        )
-        
-        total_value = sum(
-            data['output_values'].get(output, 0) * value(self.model.output_produced[output, t])
-            for output in outputs for t in weeks
-        )
-        
-        return {
-            'objective_value': float(value(self.model.objective_function)),
-            'solver_status': str(self.solver_results.solver.status) if self.solver_results else 'unknown',
-            'termination_condition': str(self.solver_results.solver.termination_condition) if self.solver_results else 'unknown',
-            'total_processed_kg': float(total_processed),
-            'total_produced_kg': float(total_produced),
-            'total_value': float(total_value),
-            'schedule': schedule,
-            'outputs': output_data,
-            'material_inventory': material_inventory,
-            'summary': {
-                'weeks_processed': len(weeks),
-                'methods_used': [method for method in methods 
-                               if any(value(self.model.is_method_running[method, t]) > 0 for t in weeks)],
-                'outputs_produced': [output for output in outputs 
-                                   if any(value(self.model.output_produced[output, t]) > 0 for t in weeks)]
+        for k in items:
+            mass_per_item = item_mass.get(k, 0.0)
+            initial_units = S_items0.get(k, 0.0)
+            total_used = sum(sv(m.carried_used[k, t]) for t in weeks)
+            final_units = initial_units - total_used
+            
+            initial_weight = mass_per_item * initial_units
+            final_weight = mass_per_item * final_units
+            weight_loss = mass_per_item * total_used
+            
+            carried_weight_loss[k] = {
+                "initial_units": initial_units,
+                "units_used": total_used,
+                "final_units": final_units,
+                "mass_per_unit": mass_per_item,
+                "initial_weight": initial_weight,
+                "final_weight": final_weight,
+                "total_weight_loss": weight_loss
             }
+            
+            total_initial_carriage_weight += initial_weight
+            total_final_carriage_weight += final_weight
+            total_weight_loss += weight_loss
+
+        summary = {
+            "objective_value": sv(m.objective),
+            "total_processed_kg": sum(sv(m.Q[r, t]) for r in methods for t in weeks),
+            "total_output_produced_kg": sum(sv(m.Oprod[o, t]) for o in outputs for t in weeks),
+            "total_substitutes_made": sum(sv(m.make_sub[s, t]) for s in subs for t in weeks),
+            "substitute_breakdown": substitute_breakdown,
+            "total_initial_carriage_weight": total_initial_carriage_weight,
+            "total_final_carriage_weight": total_final_carriage_weight,
+            "total_carried_weight_loss": total_weight_loss,
+            "carried_weight_loss_by_item": carried_weight_loss
         }
 
-    def print_schedule(self, weeks):
-        """Print the production schedule"""
-        print("\nWeek | " + " | ".join([f"{method}_processed(kg)" for method in self.model.R.data()]) + 
-              " | " + " | ".join([f"{method}_running" for method in self.model.R.data()]))
-        
-        for t in weeks:
-            row = f"{t:4d}"
-            for method in self.model.R.data():
-                row += f":{value(self.model.total_processed_by_method[method,t]):12.2f}"
-            for method in self.model.R.data():
-                row += f":{int(value(self.model.is_method_running[method,t])):10d}"
-            print(row)
-
-        print("\nOutputs produced per week:")
-        for o in self.model.O.data():
-            print(f"  Output: {o}")
-            for t in weeks:
-                print(f"    week {t}: produced {value(self.model.output_produced[o,t]):6.2f} kg " +
-                      f"inventory end {value(self.model.output_inventory[o,t]):6.2f} kg")
-
-    def _validate_data(self, data: dict):
-        """Validate the input data structure with comprehensive checks"""
-        errors = []
-        
-        # 1. Check required keys exist
-        required_keys = [
-            'materials', 'methods', 'outputs', 'weeks',
-            'waste_generated', 'initial_inventory', 'demands',
-            'yields', 'max_capacity', 'min_lot_size',
-            'crew_cost', 'energy_cost', 'crew_available', 'energy_available',
-            'output_capacity', 'input_capacity', 'availability',
-            'risk_cost', 'output_values', 'weights'
-        ]
-        
-        missing_keys = [key for key in required_keys if key not in data]
-        if missing_keys:
-            errors.append(f"Missing required keys: {missing_keys}")
-        
-        # 2. Validate basic data types and structures
-        try:
-            # Check lists
-            if not isinstance(data.get('materials'), list):
-                errors.append("'materials' must be a list")
-            if not isinstance(data.get('methods'), list):
-                errors.append("'methods' must be a list")
-            if not isinstance(data.get('outputs'), list):
-                errors.append("'outputs' must be a list")
-            if not isinstance(data.get('weeks'), list):
-                errors.append("'weeks' must be a list")
-            
-            # Check dictionaries
-            dict_keys = ['waste_generated', 'demands', 'yields', 'max_capacity', 
-                        'min_lot_size', 'crew_cost', 'energy_cost', 'crew_available', 
-                        'energy_available', 'output_capacity', 'input_capacity', 
-                        'availability', 'risk_cost', 'output_values', 'weights', 'initial_inventory']
-            
-            for key in dict_keys:
-                if key in data and not isinstance(data[key], dict):
-                    errors.append(f"'{key}' must be a dictionary")
-            
-        except Exception as e:
-            errors.append(f"Type validation error: {str(e)}")
-        
-        # 3. Validate data consistency and relationships
-        if not errors:  # Only proceed if basic structure is valid
-            try:
-                materials = data['materials']
-                methods = data['methods']
-                outputs = data['outputs']
-                weeks = data['weeks']
-                
-                # Check waste_generated structure
-                waste_gen = data.get('waste_generated', {})
-                for key, value in waste_gen.items():
-                    if not isinstance(key, tuple) or len(key) != 2:
-                        errors.append(f"waste_generated key '{key}' must be a tuple of (material, week)")
-                    else:
-                        material, week = key
-                        if material not in materials:
-                            errors.append(f"waste_generated material '{material}' not in materials list")
-                        if week not in weeks:
-                            errors.append(f"waste_generated week '{week}' not in weeks list")
-                        if not isinstance(value, (int, float)) or value < 0:
-                            errors.append(f"waste_generated value for '{key}' must be non-negative number")
-                
-                # Check demands structure
-                demands = data.get('demands', {})
-                for key, value in demands.items():
-                    if not isinstance(key, tuple) or len(key) != 2:
-                        errors.append(f"demands key '{key}' must be a tuple of (output, week)")
-                    else:
-                        output, week = key
-                        if output not in outputs:
-                            errors.append(f"demands output '{output}' not in outputs list")
-                        if week not in weeks:
-                            errors.append(f"demands week '{week}' not in weeks list")
-                        if not isinstance(value, (int, float)) or value <= 0:
-                            errors.append(f"demands value for '{key}' must be positive number")
-                
-                # Check yields structure
-                yields = data.get('yields', {})
-                for key, value in yields.items():
-                    if not isinstance(key, tuple) or len(key) != 3:
-                        errors.append(f"yields key '{key}' must be a tuple of (material, method, output)")
-                    else:
-                        material, method, output = key
-                        if material not in materials:
-                            errors.append(f"yields material '{material}' not in materials list")
-                        if method not in methods:
-                            errors.append(f"yields method '{method}' not in methods list")
-                        if output not in outputs:
-                            errors.append(f"yields output '{output}' not in outputs list")
-                        if not isinstance(value, (int, float)) or value < 0:
-                            errors.append(f"yields value for '{key}' must be non-negative number")
-                
-                # Check max_capacity structure
-                max_cap = data.get('max_capacity', {})
-                for key, value in max_cap.items():
-                    if not isinstance(key, tuple) or len(key) != 2:
-                        errors.append(f"max_capacity key '{key}' must be a tuple of (method, week)")
-                    else:
-                        method, week = key
-                        if method not in methods:
-                            errors.append(f"max_capacity method '{method}' not in methods list")
-                        if week not in weeks:
-                            errors.append(f"max_capacity week '{week}' not in weeks list")
-                        if not isinstance(value, (int, float)) or value <= 0:
-                            errors.append(f"max_capacity value for '{key}' must be positive number")
-                
-                # Check availability structure
-                availability = data.get('availability', {})
-                for key, value in availability.items():
-                    if not isinstance(key, tuple) or len(key) != 2:
-                        errors.append(f"availability key '{key}' must be a tuple of (method, week)")
-                    else:
-                        method, week = key
-                        if method not in methods:
-                            errors.append(f"availability method '{method}' not in methods list")
-                        if week not in weeks:
-                            errors.append(f"availability week '{week}' not in weeks list")
-                        if not isinstance(value, (int, float)) or value not in [0, 1]:
-                            errors.append(f"availability value for '{key}' must be 0 or 1")
-                
-                # Check initial_inventory structure
-                init_inv = data.get('initial_inventory', {})
-                if 'materials' in init_inv:
-                    for material, value in init_inv['materials'].items():
-                        if material not in materials:
-                            errors.append(f"initial_inventory material '{material}' not in materials list")
-                        if not isinstance(value, (int, float)) or value < 0:
-                            errors.append(f"initial_inventory materials value for '{material}' must be non-negative number")
-                
-                if 'outputs' in init_inv:
-                    for output, value in init_inv['outputs'].items():
-                        if output not in outputs:
-                            errors.append(f"initial_inventory output '{output}' not in outputs list")
-                        if not isinstance(value, (int, float)) or value < 0:
-                            errors.append(f"initial_inventory outputs value for '{output}' must be non-negative number")
-                
-                # Check single-key dictionaries
-                single_dicts = {
-                    'min_lot_size': methods,
-                    'crew_cost': methods,
-                    'energy_cost': methods,
-                    'risk_cost': methods,
-                    'output_capacity': outputs,
-                    'input_capacity': materials,
-                    'output_values': outputs
-                }
-                
-                for dict_name, valid_keys in single_dicts.items():
-                    dict_data = data.get(dict_name, {})
-                    for key, value in dict_data.items():
-                        if key not in valid_keys:
-                            errors.append(f"{dict_name} key '{key}' not in valid keys {valid_keys}")
-                        if not isinstance(value, (int, float)) or value < 0:
-                            errors.append(f"{dict_name} value for '{key}' must be non-negative number")
-                
-                # Check time-based dictionaries
-                time_dicts = ['crew_available', 'energy_available']
-                for dict_name in time_dicts:
-                    dict_data = data.get(dict_name, {})
-                    for week, value in dict_data.items():
-                        if week not in weeks:
-                            errors.append(f"{dict_name} week '{week}' not in weeks list")
-                        if not isinstance(value, (int, float)) or value < 0:
-                            errors.append(f"{dict_name} value for week '{week}' must be non-negative number")
-                
-                # Check weights structure
-                weights = data.get('weights', {})
-                expected_weight_keys = ['mass', 'value', 'crew', 'energy', 'risk']
-                for key in expected_weight_keys:
-                    if key not in weights:
-                        errors.append(f"weights missing key '{key}'")
-                    elif not isinstance(weights[key], (int, float)) or weights[key] < 0:
-                        errors.append(f"weights value for '{key}' must be non-negative number")
-                
-                # Check for completeness of data combinations
-                # Ensure all material-week combinations exist in waste_generated
-                for material in materials:
-                    for week in weeks:
-                        if (material, week) not in waste_gen:
-                            errors.append(f"Missing waste_generated entry for ({material}, {week})")
-                
-                # Ensure all method-week combinations exist in max_capacity
-                for method in methods:
-                    for week in weeks:
-                        if (method, week) not in max_cap:
-                            errors.append(f"Missing max_capacity entry for ({method}, {week})")
-                
-                # Ensure all method-week combinations exist in availability
-                for method in methods:
-                    for week in weeks:
-                        if (method, week) not in availability:
-                            errors.append(f"Missing availability entry for ({method}, {week})")
-                
-                # Ensure all material-method-output combinations exist in yields
-                for material in materials:
-                    for method in methods:
-                        for output in outputs:
-                            if (material, method, output) not in yields:
-                                errors.append(f"Missing yields entry for ({material}, {method}, {output})")
-                
-            except Exception as e:
-                errors.append(f"Data consistency validation error: {str(e)}")
-        
-        # Return validation result
-        if errors:
-            print("Data validation failed with the following errors:")
-            for error in errors:
-                print(f"  - {error}")
-            return False
-        else:
-            print("Data validation passed successfully!")
-            return True
+        return {
+            "schedule": schedule,
+            "outputs": outputs_list,
+            "substitutes": substitutes_table,
+            "items": items_table,
+            "summary": summary,
+            "solver_status": getattr(self.solver_results, "solver", None).__dict__ if self.solver_results else None
+        }

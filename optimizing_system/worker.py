@@ -1,6 +1,6 @@
 import json
 import pika
-from model import OptimizationModel
+from model import MarsRecyclingOptimizer
 from pyomo.environ import value
 from config import Config
 
@@ -113,12 +113,22 @@ class OptimizationWorker:
             print(f"Request ID: {request_id}")
             
             # Run the optimization
-            model = OptimizationModel()
+            model = MarsRecyclingOptimizer()
             model.setup(optimization_data)
             model.solve()
             
             # Get structured results from the model
-            optimization_results = model.get_results(optimization_data)
+            optimization_results = model.get_results()
+            # Normalize solver_status to a simple JSON-safe summary
+            try:
+                solver_info = getattr(model.solver_results, 'solver', None)
+                cleaned_status = {
+                    'status': str(getattr(solver_info, 'status', 'unknown')) if solver_info is not None else 'unknown',
+                    'termination_condition': str(getattr(solver_info, 'termination_condition', 'unknown')) if solver_info is not None else 'unknown',
+                }
+                optimization_results['solver_status'] = cleaned_status
+            except Exception:
+                optimization_results['solver_status'] = str(optimization_results.get('solver_status', 'unknown'))
             
             # Build response
             response = {

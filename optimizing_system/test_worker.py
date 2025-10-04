@@ -170,23 +170,62 @@ if __name__ == "__main__":
         'materials': ["plastic", "textile"],
         'methods': ["extrude", "compress"],
         'outputs': ["filament", "insulation"],
+        'items': ["spare_part", "insulation_patch"],
+        'substitutes': ["printed_part", "insulation_pad"],
         'weeks': list(range(1, 9)),
         
-        'waste_generated': {
-            ("plastic", 1): 5.0, ("plastic", 2): 5.0, ("plastic", 3): 5.0, ("plastic", 4): 5.0,
-            ("textile", 1): 0.0, ("textile", 2): 3.0, ("textile", 3): 3.0, ("textile", 4): 3.0,
-            ("plastic", 5): 5.0, ("plastic", 6): 5.0, ("plastic", 7): 5.0, ("plastic", 8): 5.0,
-            ("textile", 5): 3.0, ("textile", 6): 3.0, ("textile", 7): 3.0, ("textile", 8): 3.0,
-        },
-        
         'initial_inventory': {
-            'materials': {"plastic": 0.0, "textile": 0.0},
-            'outputs': {"filament": 0.0, "insulation": 0.0}
+            'materials': {"plastic": 10.0, "textile": 8.0},
+            'outputs': {"filament": 5.0, "insulation": 4.0},
+            'items': {"spare_part": 25.0, "insulation_patch": 20.0},
+            'substitutes': {"printed_part": 0.0, "insulation_pad": 0.0}
+        },
+
+        'item_lifetime': {
+            "spare_part": 1.0,
+            "insulation_patch": 1.0
+        },
+        'item_mass': {
+            "spare_part": 1.0,
+            "insulation_patch": 1.0
+        },
+        'item_waste': {
+            ("spare_part", "plastic"): 1.0,
+            ("insulation_patch", "plastic"): 1.0,
+            ("spare_part", "textile"): 0.0,
+            ("insulation_patch", "textile"): 0.5
+        },
+        'substitute_waste': {
+            ("printed_part", "plastic"): 0.8,
+            ("insulation_pad", "plastic"): 0.0,
+            ("printed_part", "textile"): 0.0,
+            ("insulation_pad", "textile"): 0.8
+        },
+        'substitute_lifetime': {
+            "printed_part": 2,
+            "insulation_pad": 2
+        },
+        'item_demands': {
+            ("spare_part", 2): 5.0,
+            ("spare_part", 4): 4.0,
+            ("spare_part", 6): 6.0,
+            ("insulation_patch", 3): 4.0,
+            ("insulation_patch", 5): 5.0,
+            ("insulation_patch", 7): 7.0,
+            ("insulation_patch", 8): 4.0
         },
         
-        'demands': {
-            ("filament", 5): 4.0,
-            ("insulation", 8): 6.0
+        'substitute_make_recipe': {
+            ("printed_part", "filament"): 1.0,
+            ("insulation_pad", "insulation"): 1.0
+        },
+        'substitute_values': {
+            "printed_part": 3.0,
+            "insulation_pad": 2.5
+        },
+        'substitutes_can_replace': {
+            'spare_part': ["printed_part"],
+            'insulation_patch': ["insulation_pad"]
         },
         
         'yields': {
@@ -201,35 +240,39 @@ if __name__ == "__main__":
         },
         
         'max_capacity': {
-            ("extrude", t): 8.0 for t in range(1, 9)
+            **{("extrude", t): 8.0 for t in range(1, 9)},
+            **{("compress", t): 8.0 for t in range(1, 9)}
         },
         'min_lot_size': {"extrude": 1.0, "compress": 1.0},
         'crew_cost': {"extrude": 0.5, "compress": 0.8},
         'energy_cost': {"extrude": 2.0, "compress": 3.0},
-        'crew_available': {t: 10.0 for t in range(1, 9)},
-        'energy_available': {t: 40.0 for t in range(1, 9)},
+        'crew_available': {1: 12.0, 2: 15.0, 3: 10.0, 4: 18.0, 5: 14.0, 6: 12.0, 7: 16.0, 8: 15.0},
+        'energy_available': {1: 35.0, 2: 45.0, 3: 30.0, 4: 55.0, 5: 40.0, 6: 35.0, 7: 50.0, 8: 45.0},
         'output_capacity': {"filament": 20.0, "insulation": 20.0},
         'input_capacity': {"plastic": 50.0, "textile": 30.0},
         'availability': {
-            (r, t): 1 for r in ["extrude", "compress"] for t in range(1, 9)
+            ("extrude", 1): 1, ("extrude", 2): 1, ("extrude", 3): 0, ("extrude", 4): 1, 
+            ("extrude", 5): 1, ("extrude", 6): 1, ("extrude", 7): 0, ("extrude", 8): 1,
+            ("compress", 1): 1, ("compress", 2): 0, ("compress", 3): 1, ("compress", 4): 0, 
+            ("compress", 5): 1, ("compress", 6): 1, ("compress", 7): 1, ("compress", 8): 1
         },
         'risk_cost': {"extrude": 0.1, "compress": 0.2},
         'output_values': {"filament": 2.0, "insulation": 1.5},
         
         'weights': {
             'mass': 1.0, 'value': 1.0, 'crew': 0.5,
-            'energy': 0.2, 'risk': 0.3
+            'energy': 0.2, 'risk': 0.3, 'make': 5.0,
+            'carry': -2.0, 'shortage': 10000.0
         },
         
         'deadlines': [
-            {'output': 'filament', 'week': 5, 'amount': 4.0},
-            {'output': 'insulation', 'week': 8, 'amount': 6.0}
+            {'item': 'spare_part', 'week': 4, 'amount': 9.0},
+            {'item': 'spare_part', 'week': 6, 'amount': 15.0},
+            {'item': 'insulation_patch', 'week': 5, 'amount': 9.0},
+            {'item': 'insulation_patch', 'week': 8, 'amount': 20.0}
         ]
     }
     
-    # Add compress capacity
-    sample_data['max_capacity'].update({("compress", t): 5.0 for t in range(1, 9)})
-    sample_data['availability'][("compress", 4)] = 0
     
     print("="*60)
     print("SENDING OPTIMIZATION REQUEST TO RABBITMQ WORKER")
@@ -250,14 +293,11 @@ if __name__ == "__main__":
         if response['status'] == 'success':
             results = response['results']
             print(f"\nOptimization succeeded!")
-            print(f"Objective value: {results['objective_value']}")
-            print(f"Total processed: {results['total_processed_kg']:.2f} kg")
-            print(f"Total produced: {results['total_produced_kg']:.2f} kg")
-            print(f"Total value: ${results['total_value']:.2f}")
+            print(f"Objective value: {results['summary']['objective_value']}")
+            print(f"Total processed: {results['summary']['total_processed_kg']:.2f} kg")
+            print(f"Total output produced: {results['summary']['total_output_produced_kg']:.2f} kg")
+            print(f"Total substitutes made: {results['summary']['total_substitutes_made']:.2f}")
             print(f"Solver status: {results['solver_status']}")
-            print(f"Termination condition: {results['termination_condition']}")
-            print(f"Methods used: {', '.join(results['summary']['methods_used'])}")
-            print(f"Outputs produced: {', '.join(results['summary']['outputs_produced'])}")
         else:
             print(f"\nOptimization failed!")
             print(f"Error: {response.get('error', 'Unknown error')}")
