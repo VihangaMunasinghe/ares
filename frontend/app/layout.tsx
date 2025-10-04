@@ -1,11 +1,22 @@
 import type React from "react"
 import type { Metadata } from "next"
-import { Inter } from "next/font/google"
+import { Inter, Space_Mono } from "next/font/google"
 import "./globals.css"
 import { Sidebar } from "@/components/sidebar"
 import { TopBar } from "@/components/top-bar"
 
-const inter = Inter({ subsets: ["latin"], variable: "--font-inter" })
+const inter = Inter({ 
+  subsets: ["latin"], 
+  variable: "--font-inter",
+  display: 'swap',
+})
+
+const spaceMono = Space_Mono({ 
+  subsets: ["latin"], 
+  weight: ['400', '700'],
+  variable: "--font-space-mono",
+  display: 'swap',
+})
 
 export const metadata: Metadata = {
   title: "Mars Mission Optimizer",
@@ -19,8 +30,8 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en" className={`${inter.variable} dark`}>
-      <body className="font-sans antialiased bg-background text-foreground">
+    <html lang="en" className={`${inter.variable} ${spaceMono.variable} dark`}>
+      <body className="font-inter antialiased bg-background text-foreground">
         <div className="flex h-screen overflow-hidden">
           <Sidebar />
           <div className="flex flex-col flex-1 overflow-hidden">

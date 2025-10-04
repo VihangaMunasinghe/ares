@@ -4,43 +4,45 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.646 0.222 41.116);
-  --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.398 0.07 227.392);
-  --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  /* NASA-inspired dark theme colors */
+  --background: oklch(0.08 0 0); /* Deep space black */
+  --foreground: oklch(0.95 0 0); /* Bright white text */
+  --card: oklch(0.12 0.02 240); /* Dark blue-gray cards */
+  --card-foreground: oklch(0.95 0 0);
+  --popover: oklch(0.12 0.02 240);
+  --popover-foreground: oklch(0.95 0 0);
+  --primary: oklch(0.65 0.25 230); /* NASA blue */
+  --primary-foreground: oklch(0.95 0 0);
+  --secondary: oklch(0.15 0.02 240); /* Darker secondary */
+  --secondary-foreground: oklch(0.85 0 0);
+  --muted: oklch(0.18 0.02 240);
+  --muted-foreground: oklch(0.65 0 0);
+  --accent: oklch(0.65 0.25 30); /* Orange accent for warnings/highlights */
+  --accent-foreground: oklch(0.95 0 0);
+  --destructive: oklch(0.65 0.25 20); /* Red for alerts */
+  --destructive-foreground: oklch(0.95 0 0);
+  --border: oklch(0.22 0.02 240);
+  --input: oklch(0.18 0.02 240);
+  --ring: oklch(0.65 0.25 230);
+  --chart-1: oklch(0.65 0.25 230); /* NASA blue */
+  --chart-2: oklch(0.65 0.25 30);  /* Orange */
+  --chart-3: oklch(0.65 0.25 120); /* Green */
+  --chart-4: oklch(0.65 0.25 300); /* Purple */
+  --chart-5: oklch(0.65 0.25 60);  /* Yellow */
+  --radius: 0.5rem;
+  --sidebar: oklch(0.10 0.02 240);
+  --sidebar-foreground: oklch(0.90 0 0);
+  --sidebar-primary: oklch(0.65 0.25 230);
+  --sidebar-primary-foreground: oklch(0.95 0 0);
+  --sidebar-accent: oklch(0.15 0.02 240);
+  --sidebar-accent-foreground: oklch(0.85 0 0);
+  --sidebar-border: oklch(0.20 0.02 240);
+  --sidebar-ring: oklch(0.65 0.25 230);
 }
 
 @theme inline {
-  /* optional: --font-sans, --font-serif, --font-mono if they are applied in the layout.tsx */
+  --font-inter: var(--font-inter);
+  --font-space-mono: var(--font-space-mono);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -86,4 +88,55 @@
   body {
     @apply bg-background text-foreground;
   }
+  
+  /* NASA-inspired typography classes */
+  .font-technical {
+    font-family: var(--font-space-mono), monospace;
+  }
+  
+  .nasa-gradient {
+    background: linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%);
+  }
+  
+  .mission-card-glow {
+    box-shadow: 0 0 20px rgba(66, 136, 255, 0.15);
+  }
+  
+  /* Custom animations for NASA feel */
+  @keyframes data-flow {
+    0%, 100% { opacity: 0.5; transform: translateX(-10px); }
+    50% { opacity: 1; transform: translateX(0); }
+  }
+  
+  .animate-data-flow {
+    animation: data-flow 2s ease-in-out infinite;
+  }
+  
+  @keyframes pulse-blue {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(66, 136, 255, 0.7); }
+    70% { box-shadow: 0 0 0 10px rgba(66, 136, 255, 0); }
+  }
+  
+  .animate-pulse-blue {
+    animation: pulse-blue 2s infinite;
+  }
+}
+
+/* Custom scrollbar for dark theme */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--muted);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--primary);
 }
