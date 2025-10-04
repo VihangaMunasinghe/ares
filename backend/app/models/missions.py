@@ -1,3 +1,4 @@
+from datetime import date
 from pydantic import BaseModel, Field
 from typing import Literal, Optional, List
 
@@ -6,7 +7,7 @@ MissionStatus = Literal["Planned", "Running", "Completed", "Archived"]
 class MissionCreate(BaseModel):
     name: str
     description: Optional[str] = None
-    mission_start_date: Optional[str] = None
+    mission_start_date: Optional[date] = None  # <-- key change
     duration_weeks: int = Field(gt=0)
     transit_weeks: int
     surface_weeks: int

@@ -6,10 +6,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { MdVisibility, MdEdit, MdDelete, MdRefresh } from "react-icons/md"
+import { MdVisibility, MdEdit, MdDelete, MdRefresh, MdAdd } from "react-icons/md"
 import { missionsApi, type Mission } from "@/lib/api/missions"
 import { toast } from "@/hooks/use-toast"
 import { MissionEditDialog } from "./MissionEditDialog"
+import { MissionCreateDialog } from "./MissionCreateDialog"
 
 export function MissionTable() {
   const [missions, setMissions] = useState<Mission[]>([])
@@ -17,6 +18,7 @@ export function MissionTable() {
   const [error, setError] = useState<string | null>(null)
   const [editingMission, setEditingMission] = useState<Mission | null>(null)
   const [editDialogOpen, setEditDialogOpen] = useState(false)
+  const [createDialogOpen, setCreateDialogOpen] = useState(false)
 
   const fetchMissions = async () => {
     try {
@@ -68,6 +70,10 @@ export function MissionTable() {
 
   const handleMissionUpdated = (updatedMission: Mission) => {
     setMissions(missions.map(m => m.id === updatedMission.id ? updatedMission : m))
+  }
+
+  const handleMissionCreated = (newMission: Mission) => {
+    setMissions([newMission, ...missions])
   }
 
   const getStatusVariant = (status: Mission["status"]) => {
@@ -125,7 +131,7 @@ export function MissionTable() {
             <p className="text-muted-foreground max-w-sm">Get started by creating your first Mars mission</p>
             <Link href="/missions/new">
               <Button className="gap-2 mt-4">
-                <MdEdit className="w-4 h-4" />
+                <MdAdd className="w-4 h-4" />
                 Create your first mission
               </Button>
             </Link>
@@ -140,10 +146,16 @@ export function MissionTable() {
       <CardContent className="p-0">
         <div className="flex justify-between items-center p-4 border-b">
           <h2 className="text-lg font-semibold">Missions ({missions.length})</h2>
-          <Button onClick={fetchMissions} variant="outline" size="sm" className="gap-2">
-            <MdRefresh className="w-4 h-4" />
-            Refresh
-          </Button>
+          <div className="flex gap-2">
+            <Button onClick={() => setCreateDialogOpen(true)} className="gap-2">
+              <MdAdd className="w-4 h-4" />
+              New Mission
+            </Button>
+            <Button onClick={fetchMissions} variant="outline" size="sm" className="gap-2">
+              <MdRefresh className="w-4 h-4" />
+              Refresh
+            </Button>
+          </div>
         </div>
         <Table>
           <TableHeader>
@@ -217,6 +229,12 @@ export function MissionTable() {
         open={editDialogOpen}
         onOpenChange={setEditDialogOpen}
         onMissionUpdated={handleMissionUpdated}
+      />
+
+      <MissionCreateDialog
+        open={createDialogOpen}
+        onOpenChange={setCreateDialogOpen}
+        onMissionCreated={handleMissionCreated}
       />
     </Card>
   )
