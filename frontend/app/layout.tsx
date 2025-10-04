@@ -33,7 +33,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className={`${inter.variable} ${spaceMono.variable} dark`}>
-      <body className="font-inter antialiased bg-background text-foreground">
+      <body className="antialiased bg-background text-foreground">
         <SidebarProvider>
           <div className="flex h-screen overflow-hidden">
             <Sidebar />

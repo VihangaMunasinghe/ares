@@ -119,9 +119,9 @@ export function MissionTabs({ mission }: MissionTabsProps) {
           </CardHeader>
           <CardContent className="flex flex-col items-center justify-center py-12">
             <p className="text-muted-foreground mb-4">View the optimized schedule for this mission</p>
-            <Link href={`/scheduler?mission=${mission.id}`}>
+            <Link href={`/optimizer?mission=${mission.id}`}>
               <Button className="gap-2">
-                Go to Scheduler
+                Go to Optimizer
                 <MdArrowForward className="w-4 h-4" />
               </Button>
             </Link>
