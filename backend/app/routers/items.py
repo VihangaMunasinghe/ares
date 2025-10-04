@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
 from app.core.deps import get_db
@@ -43,3 +43,12 @@ async def create_item(payload: ManifestItemCreate, db: AsyncSession = Depends(ge
 async def recompute(item_id: str, db: AsyncSession = Depends(get_db)):
     await recompute_item_waste(db, item_id)
     return {"ok": True}
+
+@router.delete("/{item_id}", status_code=status.HTTP_200_OK)
+async def delete_item(item_id: str, db: AsyncSession = Depends(get_db)):
+  rs = await db.execute(text("delete from manifest_items where id=:id returning id"), {"id": item_id})
+  deleted = rs.mappings().first()
+  await db.commit()
+  if not deleted:
+    raise HTTPException(status_code=404, detail="Item not found")
+  return {"success": True, "message": "Item deleted successfully."}

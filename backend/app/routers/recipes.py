@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
 from app.core.deps import get_db
@@ -73,3 +73,12 @@ async def add_score(payload: RecipeMaterialScoreCreate, db: AsyncSession = Depen
     })
     await db.commit()
     return dict(rs.mappings().first())
+
+@router.delete("/{recipe_id}", status_code=status.HTTP_200_OK)
+async def delete_recipe(recipe_id: str, db: AsyncSession = Depends(get_db)):
+        rs = await db.execute(text("delete from recipes where id=:id returning id"), {"id": recipe_id})
+        deleted = rs.mappings().first()
+        await db.commit()
+        if not deleted:
+                raise HTTPException(status_code=404, detail="Recipe not found")
+        return {"success": True, "message": "Recipe deleted successfully."}
