@@ -12,7 +12,15 @@ def _ensure_engine():
         settings = get_settings()
         if not settings.SUPABASE_DB_URL:
             raise RuntimeError("SUPABASE_DB_URL is not set. Check your .env or environment.")
-        _engine = create_async_engine(settings.SUPABASE_DB_URL, pool_pre_ping=True, future=True)
+        _engine = create_async_engine(
+            settings.SUPABASE_DB_URL, 
+            pool_pre_ping=True, 
+            future=True,
+            pool_size=5,  # Limit concurrent connections
+            max_overflow=0,  # Don't allow overflow beyond pool_size
+            pool_recycle=3600,  # Recycle connections after 1 hour
+            echo=False  # Set to True for SQL debugging
+        )
         _SessionLocal = async_sessionmaker(_engine, expire_on_commit=False, class_=AsyncSession)
 
 def get_sessionmaker() -> async_sessionmaker[AsyncSession]:

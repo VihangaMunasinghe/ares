@@ -2,16 +2,19 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
 from app.core.db import get_db 
-from app.models.recipes import RecipeCreate, RecipeInputCreate, RecipeOutputCreate, RecipeMaterialScoreCreate
+from app.models.recipes import (
+    RecipeCreate, RecipeOut, RecipeInputCreate, RecipeInputOut, 
+    RecipeOutputCreate, RecipeOutputOut, RecipeMaterialScoreCreate, RecipeMaterialScoreOut
+)
 
 router = APIRouter(prefix="/recipes", tags=["recipes"])
 
-@router.get("")
+@router.get("", response_model=list[RecipeOut])
 async def list_recipes(db: AsyncSession = Depends(get_db)):
     rs = await db.execute(text("select * from recipes order by created_at desc"))
     return [dict(r) for r in rs.mappings().all()]
 
-@router.post("")
+@router.post("", response_model=RecipeOut)
 async def create_recipe(payload: RecipeCreate, db: AsyncSession = Depends(get_db)):
     rs = await db.execute(text("""
       insert into recipes
@@ -34,7 +37,30 @@ async def create_recipe(payload: RecipeCreate, db: AsyncSession = Depends(get_db
     await db.commit()
     return dict(rs.mappings().first())
 
-@router.post("/inputs")
+@router.get("/{recipe_id}", response_model=RecipeOut)
+async def get_recipe(recipe_id: str, db: AsyncSession = Depends(get_db)):
+    rs = await db.execute(text("select * from recipes where id = :id"), {"id": recipe_id})
+    recipe = rs.mappings().first()
+    if not recipe:
+        raise HTTPException(status_code=404, detail="Recipe not found")
+    return dict(recipe)
+
+@router.get("/{recipe_id}/inputs", response_model=list[RecipeInputOut])
+async def get_recipe_inputs(recipe_id: str, db: AsyncSession = Depends(get_db)):
+    rs = await db.execute(text("select * from recipe_inputs where recipe_id = :id"), {"id": recipe_id})
+    return [dict(r) for r in rs.mappings().all()]
+
+@router.get("/{recipe_id}/outputs", response_model=list[RecipeOutputOut])
+async def get_recipe_outputs(recipe_id: str, db: AsyncSession = Depends(get_db)):
+    rs = await db.execute(text("select * from recipe_outputs where recipe_id = :id"), {"id": recipe_id})
+    return [dict(r) for r in rs.mappings().all()]
+
+@router.get("/{recipe_id}/scores", response_model=list[RecipeMaterialScoreOut])
+async def get_recipe_scores(recipe_id: str, db: AsyncSession = Depends(get_db)):
+    rs = await db.execute(text("select * from recipe_material_scores where recipe_id = :id"), {"id": recipe_id})
+    return [dict(r) for r in rs.mappings().all()]
+
+@router.post("/inputs", response_model=RecipeInputOut)
 async def add_input(payload: RecipeInputCreate, db: AsyncSession = Depends(get_db)):
     rs = await db.execute(text("""
         insert into recipe_inputs (id, recipe_id, waste_id, min_qty_kg, preferred_qty_kg)
@@ -43,7 +69,7 @@ async def add_input(payload: RecipeInputCreate, db: AsyncSession = Depends(get_d
     await db.commit()
     return dict(rs.mappings().first())
 
-@router.post("/outputs")
+@router.post("/outputs", response_model=RecipeOutputOut)
 async def add_output(payload: RecipeOutputCreate, db: AsyncSession = Depends(get_db)):
     rs = await db.execute(text("""
         insert into recipe_outputs (id, recipe_id, output_function, qty_per_kg_in, units_label, notes)
@@ -52,7 +78,7 @@ async def add_output(payload: RecipeOutputCreate, db: AsyncSession = Depends(get
     await db.commit()
     return dict(rs.mappings().first())
 
-@router.post("/scores")
+@router.post("/scores", response_model=RecipeMaterialScoreOut)
 async def add_score(payload: RecipeMaterialScoreCreate, db: AsyncSession = Depends(get_db)):
     rs = await db.execute(text("""
         insert into recipe_material_scores (id, recipe_id, material_id, feasibility_score, expected_yield, crew_time_modifier, risk_numeric)
@@ -74,11 +100,38 @@ async def add_score(payload: RecipeMaterialScoreCreate, db: AsyncSession = Depen
     await db.commit()
     return dict(rs.mappings().first())
 
+@router.delete("/inputs/{input_id}", status_code=status.HTTP_200_OK)
+async def delete_recipe_input(input_id: str, db: AsyncSession = Depends(get_db)):
+    rs = await db.execute(text("delete from recipe_inputs where id=:id returning id"), {"id": input_id})
+    deleted = rs.mappings().first()
+    await db.commit()
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Recipe input not found")
+    return {"success": True, "message": "Recipe input deleted successfully."}
+
+@router.delete("/outputs/{output_id}", status_code=status.HTTP_200_OK)
+async def delete_recipe_output(output_id: str, db: AsyncSession = Depends(get_db)):
+    rs = await db.execute(text("delete from recipe_outputs where id=:id returning id"), {"id": output_id})
+    deleted = rs.mappings().first()
+    await db.commit()
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Recipe output not found")
+    return {"success": True, "message": "Recipe output deleted successfully."}
+
+@router.delete("/scores/{score_id}", status_code=status.HTTP_200_OK)
+async def delete_recipe_score(score_id: str, db: AsyncSession = Depends(get_db)):
+    rs = await db.execute(text("delete from recipe_material_scores where id=:id returning id"), {"id": score_id})
+    deleted = rs.mappings().first()
+    await db.commit()
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Recipe score not found")
+    return {"success": True, "message": "Recipe score deleted successfully."}
+
 @router.delete("/{recipe_id}", status_code=status.HTTP_200_OK)
 async def delete_recipe(recipe_id: str, db: AsyncSession = Depends(get_db)):
-        rs = await db.execute(text("delete from recipes where id=:id returning id"), {"id": recipe_id})
-        deleted = rs.mappings().first()
-        await db.commit()
-        if not deleted:
-                raise HTTPException(status_code=404, detail="Recipe not found")
-        return {"success": True, "message": "Recipe deleted successfully."}
+    rs = await db.execute(text("delete from recipes where id=:id returning id"), {"id": recipe_id})
+    deleted = rs.mappings().first()
+    await db.commit()
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Recipe not found")
+    return {"success": True, "message": "Recipe deleted successfully."}

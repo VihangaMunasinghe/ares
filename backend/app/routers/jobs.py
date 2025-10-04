@@ -4,24 +4,30 @@ from sqlalchemy import text
 from sse_starlette.sse import EventSourceResponse
 import asyncio
 from app.core.db import get_db 
-from app.models.jobs import JobCreate
+from app.models.jobs import JobCreate, JobOut, JobLogCreate, JobLogOut
 from app.services.jobs import append_log, cancel_job
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
 
-@router.get("/by-mission/{mission_id}")
+@router.get("/by-mission/{mission_id}", response_model=list[JobOut])
 async def list_jobs(mission_id: str, db: AsyncSession = Depends(get_db)):
     rs = await db.execute(text("select * from jobs where mission_id=:id order by created_at desc"), {"id": mission_id})
     return [dict(r) for r in rs.mappings().all()]
 
-@router.get("/{job_id}")
+@router.get("/{job_id}", response_model=JobOut)
 async def get_job(job_id: str, db: AsyncSession = Depends(get_db)):
     rs = await db.execute(text("select * from jobs where id=:id"), {"id": job_id})
     row = rs.mappings().first()
-    if not row: raise HTTPException(404, "Job not found")
+    if not row: 
+        raise HTTPException(404, "Job not found")
     return dict(row)
 
-@router.post("")
+@router.get("/{job_id}/logs", response_model=list[JobLogOut])
+async def get_job_logs(job_id: str, db: AsyncSession = Depends(get_db)):
+    rs = await db.execute(text("select * from job_logs where job_id=:id order by ts asc"), {"id": job_id})
+    return [dict(r) for r in rs.mappings().all()]
+
+@router.post("", response_model=dict)
 async def start_job(payload: JobCreate, db: AsyncSession = Depends(get_db)):
     rs = await db.execute(text("""
         insert into jobs (id, mission_id, created_by, status, params)
@@ -33,6 +39,20 @@ async def start_job(payload: JobCreate, db: AsyncSession = Depends(get_db)):
     # demo: append a couple of logs so SSE has something
     await append_log(db, jid, "Optimizer queued")
     return {"job_id": jid, "status": "queued"}
+
+@router.post("/{job_id}/logs", response_model=JobLogOut)
+async def add_job_log(job_id: str, payload: JobLogCreate, db: AsyncSession = Depends(get_db)):
+    rs = await db.execute(text("""
+        insert into job_logs (id, job_id, level, message)
+        values (gen_random_uuid(), :job_id, :level, :message)
+        returning *;
+    """), {
+        "job_id": job_id,
+        "level": payload.level,
+        "message": payload.message
+    })
+    await db.commit()
+    return dict(rs.mappings().first())
 
 @router.post("/{job_id}/cancel")
 async def cancel(job_id: str, db: AsyncSession = Depends(get_db)):

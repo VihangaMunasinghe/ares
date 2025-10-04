@@ -71,12 +71,21 @@ export function MissionSummary({ mission }: MissionSummaryProps) {
           )}
         </div>
         <div className="flex gap-2">
+          <Button 
+            onClick={handleOptimize}
+            size="lg"
+            className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-semibold shadow-lg hover:shadow-xl transition-all duration-200 gap-3 px-6 py-3"
+          >
+            <MdTune className="w-5 h-5" />
+            Optimize Mission
+          </Button>
           <Button variant="outline" className="gap-2 bg-transparent">
             <MdEdit className="w-4 h-4" />
           </Button>
           <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-destructive hover:text-destructive" onClick={handleDelete} disabled={isDeleting}>
             <MdDelete className="w-4 h-4" />
           </Button>
+
         </div> */}
 
         {/* Mission header */}

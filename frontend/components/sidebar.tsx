@@ -113,7 +113,7 @@ export function Sidebar() {
 
         <nav className={cn(
           "flex-1 relative z-10 transition-all duration-300",
-          isCollapsed ? "p-2 space-y-1" : "p-4 space-y-2"
+          isCollapsed ? "p-2 space-y-1" : "p-4 space-y-1"
         )}>
           {navigation.map((item) => {
             const isActive = pathname === item.href || pathname.startsWith(item.href + "/")
@@ -130,35 +130,29 @@ export function Sidebar() {
                   }
                 }}
                 className={cn(
-                  "flex items-center rounded-lg transition-all duration-200 group relative overflow-hidden",
+                  "flex items-center transition-all duration-200 group relative overflow-hidden border-l-4",
                   isCollapsed 
                     ? "gap-0 px-2 py-3 justify-center" 
                     : "gap-3 px-4 py-3",
                   isActive
-                    ? "bg-sidebar-primary text-sidebar-primary-foreground shadow-lg mission-card-glow"
-                    : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground",
+                    ? "bg-sidebar-primary/10 text-sidebar-primary-foreground border-l-accent shadow-sm"
+                    : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground border-l-transparent hover:border-l-accent/50",
                 )}
                 title={isCollapsed ? item.name : undefined}
               >
                 {isActive && (
-                  <div className="absolute inset-0 bg-gradient-to-r from-primary/20 to-accent/20"></div>
+                  <div className="absolute inset-0 bg-gradient-to-r from-primary/10 to-accent/5"></div>
                 )}
                 <Icon className={cn(
-                  "relative z-10 transition-transform group-hover:scale-110 shrink-0",
+                  "relative z-10 transition-transform group-hover:scale-105 shrink-0",
                   isCollapsed ? "w-6 h-6" : "w-5 h-5",
-                  isActive ? "text-sidebar-primary-foreground" : "text-sidebar-foreground/70"
+                  isActive ? "text-accent" : "text-sidebar-foreground/70"
                 )} />
                 {!isCollapsed && (
                   <span className={cn(
                     "font-medium relative z-10 tracking-wide min-w-0",
-                    isActive ? "text-sidebar-primary-foreground" : "text-sidebar-foreground/70"
+                    isActive ? "text-sidebar-foreground font-semibold" : "text-sidebar-foreground/70"
                   )}>{item.name}</span>
-                )}
-                {isActive && !isCollapsed && (
-                  <div className="absolute right-2 w-1 h-6 bg-accent rounded-full animate-data-flow"></div>
-                )}
-                {isActive && isCollapsed && (
-                  <div className="absolute right-1 w-1 h-4 bg-accent rounded-full animate-data-flow"></div>
                 )}
               </Link>
             )
