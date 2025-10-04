@@ -10,6 +10,7 @@ module.exports = {
   theme: {
     extend: {
       fontFamily: {
+        'sans': ['var(--font-inter)', 'system-ui', 'sans-serif'],
         'inter': ['var(--font-inter)', 'system-ui', 'sans-serif'],
         'space-mono': ['var(--font-space-mono)', 'monospace'],
         'technical': ['var(--font-space-mono)', 'monospace'],

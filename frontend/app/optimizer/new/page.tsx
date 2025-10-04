@@ -8,6 +8,8 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Switch } from "@/components/ui/switch"
+import { Slider } from "@/components/ui/slider"
 import { MdArrowBack, MdPlayArrow, MdTune } from "react-icons/md"
 import { mockMissions } from "@/types/mission"
 import type { Job } from "@/types/jobs"
@@ -22,6 +24,18 @@ export default function CreateJobPage() {
   const [jobDescription, setJobDescription] = useState("")
   const [jobType, setJobType] = useState<"optimization" | "scheduling" | "analysis" | "simulation">("optimization")
   const [isCreating, setIsCreating] = useState(false)
+  
+  // Constraints state
+  const [constraints, setConstraints] = useState({
+    maxCrewHours: [40],
+    maxEnergyUsage: [80],
+    minWasteReduction: [70],
+    maxProcessingTime: [120],
+    prioritizeMassReduction: true,
+    prioritizeValueGeneration: false,
+    allowOvertime: false,
+    minimizeRisk: true
+  })
 
   useEffect(() => {
     if (missionId) {
@@ -46,21 +60,21 @@ export default function CreateJobPage() {
       missionId: missionId
     })
     
-    // Navigate back to scheduler with success
-    router.push(`/scheduler?mission=${missionId}&created=true`)
+    // Navigate back to optimizer with success
+    router.push(`/optimizer?mission=${missionId}&created=true`)
   }
 
   const handleCancel = () => {
-    router.push(`/scheduler?mission=${missionId}`)
+    router.push(`/optimizer?mission=${missionId}`)
   }
 
   if (!missionId || !selectedMission) {
     return (
       <div className="space-y-6">
         <div className="flex items-center gap-4">
-          <Button variant="ghost" onClick={() => router.push("/scheduler")}>
+          <Button variant="ghost" onClick={() => router.push("/optimizer")}>
             <MdArrowBack className="w-4 h-4 mr-2" />
-            Back to Scheduler
+            Back to Optimizer
           </Button>
         </div>
         <Card>
@@ -77,7 +91,7 @@ export default function CreateJobPage() {
       <div className="flex items-center gap-4">
         <Button variant="ghost" onClick={handleCancel}>
           <MdArrowBack className="w-4 h-4 mr-2" />
-          Back to Scheduler
+          Back to Optimizer
         </Button>
       </div>
 
@@ -94,7 +108,7 @@ export default function CreateJobPage() {
         </div>
       </div>
 
-      <Card className="max-w-2xl">
+      <Card className="w-full">
         <CardHeader>
           <CardTitle>Job Configuration</CardTitle>
           <CardDescription>
@@ -186,22 +200,152 @@ export default function CreateJobPage() {
               </div>
             </div>
           </div>
-          
-          <div className="flex gap-3 pt-4">
-            <Button 
-              onClick={handleCreateJob} 
-              disabled={!jobName.trim() || isCreating}
-              className="flex-1 gap-2 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
-            >
-              <MdPlayArrow className="w-4 h-4" />
-              {isCreating ? "Creating Job..." : "Create Job"}
-            </Button>
-            <Button variant="outline" onClick={handleCancel} disabled={isCreating}>
-              Cancel
-            </Button>
+        </CardContent>
+      </Card>
+
+      {/* Optimization Constraints */}
+      <Card className="w-full">
+        <CardHeader>
+          <CardTitle>Optimization Constraints</CardTitle>
+          <CardDescription>
+            Configure the constraints and priorities for the optimization algorithm
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Resource Constraints */}
+            <div className="space-y-4">
+              <h4 className="font-medium text-sm text-muted-foreground uppercase tracking-wide">Resource Limits</h4>
+              
+              <div className="space-y-3">
+                <div>
+                  <Label className="flex items-center justify-between">
+                    <span>Max Crew Hours per Week</span>
+                    <span className="text-sm font-medium">{constraints.maxCrewHours[0]}h</span>
+                  </Label>
+                  <Slider
+                    value={constraints.maxCrewHours}
+                    onValueChange={(value) => setConstraints(prev => ({ ...prev, maxCrewHours: value }))}
+                    max={60}
+                    min={20}
+                    step={5}
+                    className="mt-2"
+                  />
+                </div>
+
+                <div>
+                  <Label className="flex items-center justify-between">
+                    <span>Max Energy Usage (%)</span>
+                    <span className="text-sm font-medium">{constraints.maxEnergyUsage[0]}%</span>
+                  </Label>
+                  <Slider
+                    value={constraints.maxEnergyUsage}
+                    onValueChange={(value) => setConstraints(prev => ({ ...prev, maxEnergyUsage: value }))}
+                    max={100}
+                    min={30}
+                    step={5}
+                    className="mt-2"
+                  />
+                </div>
+
+                <div>
+                  <Label className="flex items-center justify-between">
+                    <span>Min Waste Reduction (%)</span>
+                    <span className="text-sm font-medium">{constraints.minWasteReduction[0]}%</span>
+                  </Label>
+                  <Slider
+                    value={constraints.minWasteReduction}
+                    onValueChange={(value) => setConstraints(prev => ({ ...prev, minWasteReduction: value }))}
+                    max={95}
+                    min={50}
+                    step={5}
+                    className="mt-2"
+                  />
+                </div>
+
+                <div>
+                  <Label className="flex items-center justify-between">
+                    <span>Max Processing Time (min)</span>
+                    <span className="text-sm font-medium">{constraints.maxProcessingTime[0]}min</span>
+                  </Label>
+                  <Slider
+                    value={constraints.maxProcessingTime}
+                    onValueChange={(value) => setConstraints(prev => ({ ...prev, maxProcessingTime: value }))}
+                    max={300}
+                    min={30}
+                    step={10}
+                    className="mt-2"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Optimization Priorities */}
+            <div className="space-y-4">
+              <h4 className="font-medium text-sm text-muted-foreground uppercase tracking-wide">Optimization Priorities</h4>
+              
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-1">
+                    <Label>Prioritize Mass Reduction</Label>
+                    <p className="text-sm text-muted-foreground">Focus on minimizing waste mass</p>
+                  </div>
+                  <Switch
+                    checked={constraints.prioritizeMassReduction}
+                    onCheckedChange={(checked) => setConstraints(prev => ({ ...prev, prioritizeMassReduction: checked }))}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div className="space-y-1">
+                    <Label>Prioritize Value Generation</Label>
+                    <p className="text-sm text-muted-foreground">Focus on maximizing output value</p>
+                  </div>
+                  <Switch
+                    checked={constraints.prioritizeValueGeneration}
+                    onCheckedChange={(checked) => setConstraints(prev => ({ ...prev, prioritizeValueGeneration: checked }))}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div className="space-y-1">
+                    <Label>Allow Overtime</Label>
+                    <p className="text-sm text-muted-foreground">Permit crew to work beyond normal hours</p>
+                  </div>
+                  <Switch
+                    checked={constraints.allowOvertime}
+                    onCheckedChange={(checked) => setConstraints(prev => ({ ...prev, allowOvertime: checked }))}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div className="space-y-1">
+                    <Label>Minimize Risk</Label>
+                    <p className="text-sm text-muted-foreground">Choose safer processing methods</p>
+                  </div>
+                  <Switch
+                    checked={constraints.minimizeRisk}
+                    onCheckedChange={(checked) => setConstraints(prev => ({ ...prev, minimizeRisk: checked }))}
+                  />
+                </div>
+              </div>
+            </div>
           </div>
         </CardContent>
       </Card>
+
+      {/* Run Optimization Button */}
+      <div className="flex justify-end pt-6">
+        <Button 
+          onClick={handleCreateJob} 
+          disabled={!jobName.trim() || isCreating}
+          size="lg"
+          className="px-12 py-4 text-lg bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 gap-3"
+        >
+          <MdPlayArrow className="w-6 h-6" />
+          {isCreating ? "Running Optimization..." : "Run Optimization"}
+        </Button>
+      </div>
     </div>
   )
 }
