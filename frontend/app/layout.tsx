@@ -4,6 +4,7 @@ import { Inter, Space_Mono } from "next/font/google"
 import "./globals.css"
 import { Sidebar } from "@/components/sidebar"
 import { TopBar } from "@/components/top-bar"
+import { SidebarProvider } from "@/contexts/sidebar-context"
 
 const inter = Inter({ 
   subsets: ["latin"], 
@@ -32,13 +33,15 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${inter.variable} ${spaceMono.variable} dark`}>
       <body className="font-inter antialiased bg-background text-foreground">
-        <div className="flex h-screen overflow-hidden">
-          <Sidebar />
-          <div className="flex flex-col flex-1 overflow-hidden">
-            <TopBar />
-            <main className="flex-1 overflow-y-auto p-6">{children}</main>
+        <SidebarProvider>
+          <div className="flex h-screen overflow-hidden">
+            <Sidebar />
+            <div className="flex flex-col flex-1 overflow-hidden">
+              <TopBar />
+              <main className="flex-1 overflow-y-auto p-6">{children}</main>
+            </div>
           </div>
-        </div>
+        </SidebarProvider>
       </body>
     </html>
   )

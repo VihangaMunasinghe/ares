@@ -1,21 +1,36 @@
 "use client"
 
-import { MdNotifications, MdSettings, MdPerson } from "react-icons/md"
+import { MdNotifications, MdSettings, MdPerson, MdMenu } from "react-icons/md"
 import { Button } from "@/components/ui/button"
+import { useSidebar } from "@/contexts/sidebar-context"
 
 export function TopBar() {
+  const { toggleSidebar } = useSidebar()
+  
   return (
     <header className="h-16 border-b border-border bg-card px-6 flex items-center justify-between relative overflow-hidden">
       {/* NASA-style background accent */}
       <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-primary via-accent to-primary"></div>
       <div className="absolute bottom-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-primary/30 to-transparent"></div>
       
-      <div className="relative z-10">
-        <h1 className="text-xl font-bold text-foreground tracking-tight">MARS MISSION OPTIMIZER</h1>
-        <div className="flex items-center gap-3 mt-1">
-          <p className="text-xs text-muted-foreground font-technical uppercase tracking-wider">NASA Operations Center</p>
-          <div className="w-1 h-1 bg-accent rounded-full animate-pulse"></div>
-          <span className="text-xs text-accent font-technical">LIVE</span>
+      <div className="flex items-center gap-4 relative z-10">
+        {/* Sidebar Toggle Button */}
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={toggleSidebar}
+          className="text-muted-foreground hover:text-foreground hover:bg-accent/20 lg:hidden"
+        >
+          <MdMenu className="w-5 h-5" />
+        </Button>
+        
+        <div>
+          <h1 className="text-xl font-bold text-foreground tracking-tight">MARS MISSION OPTIMIZER</h1>
+          <div className="flex items-center gap-3 mt-1">
+            <p className="text-xs text-muted-foreground font-technical uppercase tracking-wider">NASA Operations Center</p>
+            <div className="w-1 h-1 bg-accent rounded-full animate-pulse"></div>
+            <span className="text-xs text-accent font-technical">LIVE</span>
+          </div>
         </div>
       </div>
 
