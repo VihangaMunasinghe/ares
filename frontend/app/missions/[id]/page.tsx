@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import { useParams } from "next/navigation"
 import { MissionSummary } from "../components/MissionSummary"
-import { MissionTabs } from "../components/MissionTabs"
+import { MissionItemsManager } from "../components/MissionItemsManager"
 import { missionsApi, type Mission } from "@/lib/api/missions"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -114,7 +114,7 @@ export default function MissionDetailsPage() {
         </Link>
       </div>
       <MissionSummary mission={mission} />
-      <MissionTabs mission={mission} />
+      <MissionItemsManager mission={mission} />
     </div>
   )
 }
