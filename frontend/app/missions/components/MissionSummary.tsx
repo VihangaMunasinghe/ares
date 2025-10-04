@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { MdEdit, MdDelete, MdRocket, MdPeople, MdBuild, MdCalendarToday } from "react-icons/md"
+import { MdEdit, MdDelete, MdRocket, MdPeople, MdBuild, MdCalendarToday, MdTune } from "react-icons/md"
 import { missionsApi, type Mission } from "@/lib/api/missions"
 import { toast } from "@/hooks/use-toast"
 
