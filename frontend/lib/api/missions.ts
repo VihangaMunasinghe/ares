@@ -32,6 +32,21 @@ export interface MissionCreate {
   status?: "Planned" | "Running" | "Completed" | "Archived"
 }
 
+export interface MissionUpdate {
+  name?: string
+  description?: string | null
+  mission_start_date?: string | null
+  duration_weeks?: number
+  transit_weeks?: number
+  surface_weeks?: number
+  return_weeks?: number
+  crew_count?: number
+  crew_hours_per_week?: number
+  printer_capacity_kg_per_week?: number
+  tools_available?: string[]
+  status?: "Planned" | "Running" | "Completed" | "Archived"
+}
+
 // API functions for missions
 export const missionsApi = {
   // Get all missions
@@ -56,6 +71,14 @@ export const missionsApi = {
   async deleteMission(id: string): Promise<{ success: boolean; message: string }> {
     return apiRequest<{ success: boolean; message: string }>(`/missions/${id}`, {
       method: 'DELETE',
+    })
+  },
+
+  // Update mission
+  async updateMission(id: string, mission: MissionUpdate): Promise<Mission> {
+    return apiRequest<Mission>(`/missions/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(mission),
     })
   },
 }

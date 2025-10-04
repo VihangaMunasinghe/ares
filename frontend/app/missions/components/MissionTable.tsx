@@ -9,11 +9,14 @@ import { Badge } from "@/components/ui/badge"
 import { MdVisibility, MdEdit, MdDelete, MdRefresh } from "react-icons/md"
 import { missionsApi, type Mission } from "@/lib/api/missions"
 import { toast } from "@/hooks/use-toast"
+import { MissionEditDialog } from "./MissionEditDialog"
 
 export function MissionTable() {
   const [missions, setMissions] = useState<Mission[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [editingMission, setEditingMission] = useState<Mission | null>(null)
+  const [editDialogOpen, setEditDialogOpen] = useState(false)
 
   const fetchMissions = async () => {
     try {
@@ -56,6 +59,15 @@ export function MissionTable() {
         })
       }
     }
+  }
+
+  const handleEdit = (mission: Mission) => {
+    setEditingMission(mission)
+    setEditDialogOpen(true)
+  }
+
+  const handleMissionUpdated = (updatedMission: Mission) => {
+    setMissions(missions.map(m => m.id === updatedMission.id ? updatedMission : m))
   }
 
   const getStatusVariant = (status: Mission["status"]) => {
@@ -174,12 +186,15 @@ export function MissionTable() {
                         View
                       </Button>
                     </Link>
-                    <Link href={`/missions/${mission.id}?edit=true`}>
-                      <Button variant="ghost" size="sm" className="gap-1">
-                        <MdEdit className="w-4 h-4" />
-                        Edit
-                      </Button>
-                    </Link>
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="gap-1"
+                      onClick={() => handleEdit(mission)}
+                    >
+                      <MdEdit className="w-4 h-4" />
+                      Edit
+                    </Button>
                     <Button
                       variant="ghost"
                       size="sm"
@@ -196,6 +211,13 @@ export function MissionTable() {
           </TableBody>
         </Table>
       </CardContent>
+
+      <MissionEditDialog
+        mission={editingMission}
+        open={editDialogOpen}
+        onOpenChange={setEditDialogOpen}
+        onMissionUpdated={handleMissionUpdated}
+      />
     </Card>
   )
 }
