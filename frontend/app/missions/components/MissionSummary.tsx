@@ -59,7 +59,7 @@ export function MissionSummary({ mission }: MissionSummaryProps) {
   return (
     <div className="space-y-6">
       <div className="flex items-start justify-between">
-        <div className="space-y-1">
+        {/* <div className="space-y-1">
           <div className="flex items-center gap-3">
             <h1 className="text-3xl font-bold text-foreground">{mission.name}</h1>
             <Badge variant={getStatusVariant(mission.status)}>{mission.status}</Badge>
@@ -85,6 +85,31 @@ export function MissionSummary({ mission }: MissionSummaryProps) {
           <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-destructive hover:text-destructive" onClick={handleDelete} disabled={isDeleting}>
             <MdDelete className="w-4 h-4" />
           </Button>
+
+        </div> */}
+
+        {/* Mission header */}
+        <div className="flex-1">
+          <div className="flex items-center gap-3">
+            <h1 className="text-3xl font-bold text-foreground">{mission.name}</h1>
+            <Badge variant={getStatusVariant(mission.status)} className="font-technical">{mission.status}</Badge>
+          </div>
+          
+          <div className="mt-4 space-y-1">
+            <p className="text-muted-foreground">{mission.description}</p>
+            <p className="text-sm text-muted-foreground font-technical">Mission ID: {mission.id}</p>
+          </div>
+        </div>
+        
+        {/* Optimize Mission button positioned in the right corner */}
+        <div className="flex-shrink-0">
+          <Button 
+            onClick={handleOptimize}
+            size="lg"
+            className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-semibold shadow-lg hover:shadow-xl transition-all duration-200 gap-3 px-6 py-3"
+          >
+            Optimize Mission
+          </Button>
         </div>
       </div>
 
@@ -99,24 +124,24 @@ export function MissionSummary({ mission }: MissionSummaryProps) {
           <CardContent className="space-y-2">
             <div className="flex justify-between">
               <span className="text-sm text-muted-foreground">Total Duration:</span>
-              <span className="text-sm font-medium">{mission.duration_weeks} weeks</span>
+              <span className="text-sm font-medium font-technical">{mission.duration_weeks} weeks</span>
             </div>
             <div className="flex justify-between">
               <span className="text-sm text-muted-foreground">Transit:</span>
-              <span className="text-sm font-medium">{mission.transit_weeks}w</span>
+              <span className="text-sm font-medium font-technical">{mission.transit_weeks}w</span>
             </div>
             <div className="flex justify-between">
               <span className="text-sm text-muted-foreground">Surface:</span>
-              <span className="text-sm font-medium">{mission.surface_weeks}w</span>
+              <span className="text-sm font-medium font-technical">{mission.surface_weeks}w</span>
             </div>
             <div className="flex justify-between">
               <span className="text-sm text-muted-foreground">Return:</span>
-              <span className="text-sm font-medium">{mission.return_weeks}w</span>
+              <span className="text-sm font-medium font-technical">{mission.return_weeks}w</span>
             </div>
             {mission.mission_start_date && (
               <div className="flex justify-between">
                 <span className="text-sm text-muted-foreground">Start Date:</span>
-                <span className="text-sm font-medium">{new Date(mission.mission_start_date).toLocaleDateString()}</span>
+                <span className="text-sm font-medium font-technical">{new Date(mission.mission_start_date).toLocaleDateString()}</span>
               </div>
             )}
           </CardContent>
@@ -132,15 +157,15 @@ export function MissionSummary({ mission }: MissionSummaryProps) {
           <CardContent className="space-y-2">
             <div className="flex justify-between">
               <span className="text-sm text-muted-foreground">Crew Count:</span>
-              <span className="text-sm font-medium">{mission.crew_count}</span>
+              <span className="text-sm font-medium font-technical">{mission.crew_count}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-sm text-muted-foreground">Hours/Week:</span>
-              <span className="text-sm font-medium">{mission.crew_hours_per_week}h</span>
+              <span className="text-sm font-medium font-technical">{mission.crew_hours_per_week}h</span>
             </div>
             <div className="flex justify-between">
               <span className="text-sm text-muted-foreground">Total Hours:</span>
-              <span className="text-sm font-medium">
+              <span className="text-sm font-medium font-technical">
                 {mission.crew_count * mission.crew_hours_per_week * mission.duration_weeks}h
               </span>
             </div>
@@ -157,11 +182,11 @@ export function MissionSummary({ mission }: MissionSummaryProps) {
           <CardContent className="space-y-2">
             <div className="flex justify-between">
               <span className="text-sm text-muted-foreground">Printer Capacity:</span>
-              <span className="text-sm font-medium">{mission.printer_capacity_kg_per_week} kg/w</span>
+              <span className="text-sm font-medium font-technical">{mission.printer_capacity_kg_per_week} kg/w</span>
             </div>
             <div className="flex justify-between">
               <span className="text-sm text-muted-foreground">Tools Available:</span>
-              <span className="text-sm font-medium">{mission.tools_available.length}</span>
+              <span className="text-sm font-medium font-technical">{mission.tools_available.length}</span>
             </div>
             <div className="text-xs text-muted-foreground mt-2">
               {mission.tools_available.length > 0 ? mission.tools_available.join(", ") : "No tools specified"}
@@ -179,7 +204,7 @@ export function MissionSummary({ mission }: MissionSummaryProps) {
           <CardContent className="space-y-2">
             <div className="flex justify-between">
               <span className="text-sm text-muted-foreground">Weekly:</span>
-              <span className="text-sm font-medium">{mission.printer_capacity_kg_per_week} kg</span>
+              <span className="text-sm font-medium font-technical">{mission.printer_capacity_kg_per_week} kg</span>
             </div>
             <div className="flex justify-between">
               <span className="text-sm text-muted-foreground">Surface Total:</span>
