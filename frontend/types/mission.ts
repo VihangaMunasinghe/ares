@@ -1,7 +1,8 @@
 export type Mission = {
   id: string
   name: string
-  description?: string
+  description?: string | null
+  mission_start_date?: string | null
   duration_weeks: number
   transit_weeks: number
   surface_weeks: number
@@ -10,10 +11,8 @@ export type Mission = {
   crew_hours_per_week: number
   printer_capacity_kg_per_week: number
   tools_available: string[]
-  created_by: string
-  created_at: string
-  updated_at: string
-  status: "Planned" | "Running" | "Completed"
+  status: "Planned" | "Running" | "Completed" | "Archived"
+  owner_id?: string | null
 }
 
 export const AVAILABLE_TOOLS = [
@@ -33,6 +32,7 @@ export const mockMissions: Mission[] = [
     id: "1",
     name: "Ares III",
     description: "Extended surface mission to Acidalia Planitia",
+    mission_start_date: null,
     duration_weeks: 52,
     transit_weeks: 12,
     surface_weeks: 28,
@@ -40,16 +40,15 @@ export const mockMissions: Mission[] = [
     crew_count: 6,
     crew_hours_per_week: 40,
     printer_capacity_kg_per_week: 5.0,
-    tools_available: ["Extruder", "3D Printer", "Press", "Grinder"],
-    created_by: "Dr. Sarah Chen",
-    created_at: "2025-01-15T10:30:00Z",
-    updated_at: "2025-01-20T14:22:00Z",
+    tools_available: ["extruder", "3d-printer", "press", "grinder"],
     status: "Planned",
+    owner_id: "11111111-2222-3333-4444-555555555555",
   },
   {
     id: "2",
     name: "Olympus Base",
     description: "Establish permanent research station near Olympus Mons",
+    mission_start_date: null,
     duration_weeks: 78,
     transit_weeks: 14,
     surface_weeks: 50,
@@ -57,16 +56,15 @@ export const mockMissions: Mission[] = [
     crew_count: 8,
     crew_hours_per_week: 45,
     printer_capacity_kg_per_week: 7.5,
-    tools_available: ["Extruder", "3D Printer", "Press", "Grinder", "Welder", "CNC Mill"],
-    created_by: "Commander James Rodriguez",
-    created_at: "2025-02-01T08:15:00Z",
-    updated_at: "2025-02-10T16:45:00Z",
+    tools_available: ["extruder", "3d-printer", "press", "grinder", "welder", "cnc-mill"],
     status: "Running",
+    owner_id: "11111111-2222-3333-4444-555555555555",
   },
   {
     id: "3",
     name: "Valles Marineris Survey",
     description: "Geological survey and sample collection mission",
+    mission_start_date: null,
     duration_weeks: 40,
     transit_weeks: 10,
     surface_weeks: 20,
@@ -74,10 +72,8 @@ export const mockMissions: Mission[] = [
     crew_count: 4,
     crew_hours_per_week: 35,
     printer_capacity_kg_per_week: 3.0,
-    tools_available: ["3D Printer", "Grinder", "Laser Cutter"],
-    created_by: "Dr. Emily Watson",
-    created_at: "2024-11-20T12:00:00Z",
-    updated_at: "2024-12-15T09:30:00Z",
+    tools_available: ["3d-printer", "grinder", "laser-cutter"],
     status: "Completed",
+    owner_id: "11111111-2222-3333-4444-555555555555",
   },
 ]

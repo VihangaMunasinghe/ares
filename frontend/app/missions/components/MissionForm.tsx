@@ -7,13 +7,16 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { MdSave, MdCancel } from "react-icons/md"
-import { AVAILABLE_TOOLS } from "@/types/mission"
+import { missionsApi, type MissionCreate } from "@/lib/api/missions"
+import { toast } from "@/hooks/use-toast"
 
 export function MissionForm() {
   const router = useRouter()
-  const [formData, setFormData] = useState({
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [formData, setFormData] = useState<MissionCreate>({
     name: "",
     description: "",
+    mission_start_date: null,
     duration_weeks: 0,
     transit_weeks: 0,
     surface_weeks: 0,
@@ -21,10 +24,25 @@ export function MissionForm() {
     crew_count: 0,
     crew_hours_per_week: 40,
     printer_capacity_kg_per_week: 5.0,
-    tools_available: [] as string[],
+    tools_available: [],
+    status: "Planned",
   })
 
   const [errors, setErrors] = useState<Record<string, string>>({})
+
+  const availableTools = [
+    "extruder",
+    "3d-printer",
+    "3d-printer-large", 
+    "press",
+    "grinder",
+    "lathe",
+    "welder",
+    "cnc-mill",
+    "laser-cutter",
+    "oven",
+    "sealer",
+  ]
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {}
@@ -58,13 +76,30 @@ export function MissionForm() {
     return Object.keys(newErrors).length === 0
   }
 
-  const handleSubmit = (e: FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
 
-    if (validateForm()) {
-      // In a real app, this would save to a database
-      console.log("[v0] Mission created:", formData)
-      router.push("/missions")
+    if (!validateForm()) {
+      return
+    }
+
+    setIsSubmitting(true)
+    try {
+      const mission = await missionsApi.createMission(formData)
+      toast({
+        title: "Success",
+        description: "Mission created successfully",
+      })
+      router.push(`/missions/${mission.id}`)
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to create mission'
+      toast({
+        title: "Error",
+        description: errorMessage,
+        variant: "destructive",
+      })
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
@@ -101,10 +136,20 @@ export function MissionForm() {
             <Label htmlFor="description">Description</Label>
             <textarea
               id="description"
-              value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              value={formData.description || ""}
+              onChange={(e) => setFormData({ ...formData, description: e.target.value || null })}
               placeholder="Mission objectives and details..."
               className="flex min-h-[80px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-base shadow-xs placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50 md:text-sm"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="mission_start_date">Mission Start Date</Label>
+            <Input
+              id="mission_start_date"
+              type="date"
+              value={formData.mission_start_date || ""}
+              onChange={(e) => setFormData({ ...formData, mission_start_date: e.target.value || null })}
             />
           </div>
         </CardContent>
@@ -232,7 +277,7 @@ export function MissionForm() {
           <div className="space-y-2">
             <Label>Tools Available</Label>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-              {AVAILABLE_TOOLS.map((tool) => (
+              {availableTools.map((tool) => (
                 <label
                   key={tool}
                   className="flex items-center gap-2 p-2 rounded-md border border-input hover:bg-accent cursor-pointer transition-colors"
@@ -243,7 +288,7 @@ export function MissionForm() {
                     onChange={() => handleToolToggle(tool)}
                     className="rounded border-input"
                   />
-                  <span className="text-sm">{tool}</span>
+                  <span className="text-sm capitalize">{tool.replace(/-/g, ' ')}</span>
                 </label>
               ))}
             </div>
@@ -257,13 +302,14 @@ export function MissionForm() {
           variant="outline"
           className="gap-2 bg-transparent"
           onClick={() => router.push("/missions")}
+          disabled={isSubmitting}
         >
           <MdCancel className="w-4 h-4" />
           Cancel
         </Button>
-        <Button type="submit" className="gap-2">
+        <Button type="submit" className="gap-2" disabled={isSubmitting}>
           <MdSave className="w-4 h-4" />
-          Save Mission
+          {isSubmitting ? "Creating..." : "Save Mission"}
         </Button>
       </div>
     </form>
