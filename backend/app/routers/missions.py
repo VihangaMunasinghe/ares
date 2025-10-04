@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
-from app.core.deps import get_db
+from app.core.db import get_db 
 from app.models.missions import MissionCreate, MissionOut
 from uuid import uuid4
 

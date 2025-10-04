@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
 from sse_starlette.sse import EventSourceResponse
 import asyncio
-from app.core.deps import get_db
+from app.core.db import get_db 
 from app.models.jobs import JobCreate
 from app.services.jobs import append_log, cancel_job
 
