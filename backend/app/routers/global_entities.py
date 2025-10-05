@@ -13,7 +13,8 @@ from app.models.global_entities import (
     ItemWasteGlobalCreate, ItemWasteGlobalOut,
     SubstituteWasteGlobalCreate, SubstituteWasteGlobalOut,
     SubstituteRecipeGlobalCreate, SubstituteRecipeGlobalOut,
-    SubstitutesCanReplaceGlobalCreate, SubstitutesCanReplaceGlobalOut
+    SubstitutesCanReplaceGlobalCreate, SubstitutesCanReplaceGlobalOut,
+    ItemsCatalogOut, ItemSubstituteRelationshipOut
 )
 
 router = APIRouter(prefix="/global", tags=["global-entities"])
@@ -167,6 +168,27 @@ async def create_item_global(payload: ItemGlobalCreate, db: AsyncSession = Depen
     await db.commit()
     return dict(rs.mappings().first())
 
+@router.patch("/items/{item_id}", response_model=ItemGlobalOut)
+async def update_item_global(item_id: str, payload: ItemGlobalCreate, db: AsyncSession = Depends(get_db)):
+    rs = await db.execute(text("""
+        update items_global
+        set key = :key, name = :name, units_label = :units, mass_per_unit = :mass, lifetime_weeks = :lifetime
+        where id = :id
+        returning *;
+    """), {
+        "id": item_id,
+        "key": payload.key,
+        "name": payload.name,
+        "units": payload.units_label,
+        "mass": payload.mass_per_unit,
+        "lifetime": payload.lifetime_weeks
+    })
+    updated = rs.mappings().first()
+    await db.commit()
+    if not updated:
+        raise HTTPException(status_code=404, detail="Item not found")
+    return dict(updated)
+
 @router.delete("/items/{item_id}")
 async def delete_item_global(item_id: str, db: AsyncSession = Depends(get_db)):
     rs = await db.execute(text("delete from items_global where id = :id returning id"), {"id": item_id})
@@ -175,6 +197,169 @@ async def delete_item_global(item_id: str, db: AsyncSession = Depends(get_db)):
     if not deleted:
         raise HTTPException(status_code=404, detail="Item not found")
     return {"success": True, "message": "Item deleted successfully"}
+
+# === ITEMS CATALOG (JOINED DATA) ===
+@router.get("/items-catalog", response_model=list[ItemsCatalogOut])
+async def list_items_catalog(db: AsyncSession = Depends(get_db)):
+    """
+    Get items catalog with joined information from items_global, items_waste_global, and materials_global
+    Returns items with their composition, waste mappings count, and safety information
+    """
+    rs = await db.execute(text("""
+        WITH item_waste_summary AS (
+            SELECT 
+                iw.item_id,
+                COUNT(iw.id) as waste_mapping_count,
+                STRING_AGG(
+                    CONCAT(m.name, ': ', ROUND(iw.waste_per_unit::numeric, 3), '%'), 
+                    ', ' 
+                    ORDER BY iw.waste_per_unit DESC
+                ) as composition,
+                -- Aggregate safety flags from all materials for this item
+                JSONB_OBJECT_AGG(
+                    m.name, m.safety_flags
+                ) FILTER (WHERE m.safety_flags IS NOT NULL AND m.safety_flags != '{}') as aggregated_safety
+            FROM item_waste_global iw
+            JOIN materials_global m ON iw.material_id = m.id
+            GROUP BY iw.item_id
+        ),
+        item_categories AS (
+            SELECT 
+                iw.item_id,
+                STRING_AGG(DISTINCT m.category, ', ') as categories
+            FROM item_waste_global iw
+            JOIN materials_global m ON iw.material_id = m.id
+            GROUP BY iw.item_id
+        )
+        SELECT 
+            i.id,
+            i.name,
+            COALESCE(ic.categories, 'uncategorized') as category,
+            i.units_label as unit,
+            i.mass_per_unit,
+            COALESCE(iws.composition, 'No composition data') as composition,
+            COALESCE(iws.waste_mapping_count, 0) as waste_mappings,
+            COALESCE(iws.aggregated_safety, '{}'::jsonb) as safety,
+            i.created_at
+        FROM items_global i
+        LEFT JOIN item_waste_summary iws ON i.id = iws.item_id
+        LEFT JOIN item_categories ic ON i.id = ic.item_id
+        ORDER BY i.created_at DESC
+    """))
+    
+    return [convert_db_row(r) for r in rs.mappings().all()]
+
+# === ITEM WASTE RELATIONSHIPS ===
+@router.get("/item-waste", response_model=list[ItemWasteGlobalOut])
+async def list_item_waste_global(db: AsyncSession = Depends(get_db)):
+    rs = await db.execute(text("select * from item_waste_global order by item_id"))
+    return [dict(r) for r in rs.mappings().all()]
+
+@router.post("/item-waste", response_model=ItemWasteGlobalOut)
+async def create_item_waste_global(payload: ItemWasteGlobalCreate, db: AsyncSession = Depends(get_db)):
+    rs = await db.execute(text("""
+        insert into item_waste_global (id, item_id, material_id, waste_per_unit)
+        values (gen_random_uuid(), :item_id, :material_id, :waste_per_unit)
+        returning *;
+    """), {
+        "item_id": payload.item_id,
+        "material_id": payload.material_id,
+        "waste_per_unit": payload.waste_per_unit
+    })
+    await db.commit()
+    return dict(rs.mappings().first())
+
+@router.delete("/item-waste/{item_waste_id}")
+async def delete_item_waste_global(item_waste_id: str, db: AsyncSession = Depends(get_db)):
+    rs = await db.execute(text("delete from item_waste_global where id = :id returning id"), {"id": item_waste_id})
+    deleted = rs.mappings().first()
+    await db.commit()
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Item waste relationship not found")
+    return {"success": True, "message": "Item waste relationship deleted successfully"}
+
+# === ITEM-SUBSTITUTE RELATIONSHIPS ===
+@router.get("/item-substitutes", response_model=list[ItemSubstituteRelationshipOut])
+async def list_item_substitute_relationships(db: AsyncSession = Depends(get_db)):
+    """
+    Get all item-substitute relationships with joined data from items_global, 
+    substitutes_global, and substitutes_can_replace_global tables
+    """
+    rs = await db.execute(text("""
+        SELECT 
+            scr.id as relationship_id,
+            i.id as item_id,
+            i.name as item_name,
+            i.key as item_key,
+            s.id as substitute_id,
+            s.name as substitute_name,
+            s.key as substitute_key,
+            s.value_per_unit as substitute_value_per_unit,
+            s.lifetime_weeks as substitute_lifetime_weeks,
+            s.created_at as substitute_created_at,
+            s.created_at as relationship_created_at
+        FROM substitutes_can_replace_global scr
+        JOIN items_global i ON scr.item_id = i.id
+        JOIN substitutes_global s ON scr.substitute_id = s.id
+        ORDER BY i.name, s.name
+    """))
+    
+    return [convert_db_row(r) for r in rs.mappings().all()]
+
+@router.get("/item-substitutes/{item_id}", response_model=list[ItemSubstituteRelationshipOut])
+async def list_substitutes_for_item(item_id: str, db: AsyncSession = Depends(get_db)):
+    """
+    Get all substitutes that can replace a specific item
+    """
+    rs = await db.execute(text("""
+        SELECT 
+            scr.id as relationship_id,
+            i.id as item_id,
+            i.name as item_name,
+            i.key as item_key,
+            s.id as substitute_id,
+            s.name as substitute_name,
+            s.key as substitute_key,
+            s.value_per_unit as substitute_value_per_unit,
+            s.lifetime_weeks as substitute_lifetime_weeks,
+            s.created_at as substitute_created_at,
+            s.created_at as relationship_created_at
+        FROM substitutes_can_replace_global scr
+        JOIN items_global i ON scr.item_id = i.id
+        JOIN substitutes_global s ON scr.substitute_id = s.id
+        WHERE scr.item_id = :item_id
+        ORDER BY s.name
+    """), {"item_id": item_id})
+    
+    return [convert_db_row(r) for r in rs.mappings().all()]
+
+@router.post("/item-substitutes", response_model=SubstitutesCanReplaceGlobalOut)
+async def create_item_substitute_relationship(payload: SubstitutesCanReplaceGlobalCreate, db: AsyncSession = Depends(get_db)):
+    """
+    Create a new item-substitute relationship
+    """
+    rs = await db.execute(text("""
+        insert into substitutes_can_replace_global (id, item_id, substitute_id)
+        values (gen_random_uuid(), :item_id, :substitute_id)
+        returning *;
+    """), {
+        "item_id": payload.item_id,
+        "substitute_id": payload.substitute_id
+    })
+    await db.commit()
+    return dict(rs.mappings().first())
+
+@router.delete("/item-substitutes/{relationship_id}")
+async def delete_item_substitute_relationship(relationship_id: str, db: AsyncSession = Depends(get_db)):
+    """
+    Delete an item-substitute relationship
+    """
+    rs = await db.execute(text("delete from substitutes_can_replace_global where id = :id returning id"), {"id": relationship_id})
+    deleted = rs.mappings().first()
+    await db.commit()
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Item-substitute relationship not found")
+    return {"success": True, "message": "Item-substitute relationship deleted successfully"}
 
 # === SUBSTITUTES GLOBAL ===
 @router.get("/substitutes", response_model=list[SubstituteGlobalOut])

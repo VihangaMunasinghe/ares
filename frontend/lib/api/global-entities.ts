@@ -303,11 +303,63 @@ export interface SubstituteGlobal {
   id: string;
   key: string;
   name: string;
-  category: string;
-  default_mass_per_unit: number;
-  default_value_per_unit: number;
-  tags: string[];
+  value_per_unit: number;
+  lifetime_weeks: number;
   created_at: string;
+}
+
+export interface SubstituteGlobalCreate {
+  key: string;
+  name: string;
+  value_per_unit?: number;
+  lifetime_weeks?: number;
+}
+
+// Item-Substitute Relationship interfaces
+export interface ItemSubstituteRelationship {
+  relationship_id: string;
+  item_id: string;
+  item_name: string;
+  item_key: string;
+  substitute_id: string;
+  substitute_name: string;
+  substitute_key: string;
+  substitute_value_per_unit: number;
+  substitute_lifetime_weeks: number;
+  substitute_created_at: string;
+  relationship_created_at: string;
+}
+
+export interface ItemSubstituteCreate {
+  item_id: string;
+  substitute_id: string;
+}
+
+// Items catalog interface (joined data from backend)
+export interface ItemsCatalog {
+  id: string;
+  name: string;
+  category: string;
+  unit: string;
+  mass_per_unit: number | null;
+  composition: string;
+  waste_mappings: number;
+  safety: Record<string, any>;
+  created_at: string;
+}
+
+export interface ItemGlobalCreate {
+  key: string;
+  name: string;
+  units_label?: string;
+  mass_per_unit?: number;
+  lifetime_weeks?: number;
+}
+
+export interface ItemWasteCreate {
+  item_id: string;
+  material_id: string;
+  waste_per_unit: number;
 }
 
 // API functions for global entities
@@ -335,5 +387,80 @@ export const globalEntitiesApi = {
   // Substitutes
   async getSubstitutes(): Promise<SubstituteGlobal[]> {
     return apiRequest<SubstituteGlobal[]>("/global/substitutes");
+  },
+
+  async createSubstitute(data: SubstituteGlobalCreate): Promise<SubstituteGlobal> {
+    return apiRequest<SubstituteGlobal>("/global/substitutes", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  },
+
+  async deleteSubstitute(substituteId: string): Promise<{ success: boolean; message: string }> {
+    return apiRequest<{ success: boolean; message: string }>(`/global/substitutes/${substituteId}`, {
+      method: "DELETE",
+    });
+  },
+
+  // Items Catalog (joined data)
+  async getItemsCatalog(): Promise<ItemsCatalog[]> {
+    return apiRequest<ItemsCatalog[]>("/global/items-catalog");
+  },
+
+  // Items CRUD
+  async createItem(data: ItemGlobalCreate): Promise<ItemGlobal> {
+    return apiRequest<ItemGlobal>("/global/items", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  },
+
+  async deleteItem(itemId: string): Promise<{ success: boolean; message: string }> {
+    return apiRequest<{ success: boolean; message: string }>(`/global/items/${itemId}`, {
+      method: "DELETE",
+    });
+  },
+
+  async updateItem(itemId: string, data: ItemGlobalCreate): Promise<ItemGlobal> {
+    return apiRequest<ItemGlobal>(`/global/items/${itemId}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    });
+  },
+
+  // Item waste relationships
+  async createItemWaste(data: ItemWasteCreate): Promise<any> {
+    return apiRequest<any>("/global/item-waste", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  },
+
+  async deleteItemWaste(itemWasteId: string): Promise<{ success: boolean; message: string }> {
+    return apiRequest<{ success: boolean; message: string }>(`/global/item-waste/${itemWasteId}`, {
+      method: "DELETE",
+    });
+  },
+
+  // Item-Substitute relationships
+  async getItemSubstituteRelationships(): Promise<ItemSubstituteRelationship[]> {
+    return apiRequest<ItemSubstituteRelationship[]>("/global/item-substitutes");
+  },
+
+  async getSubstitutesForItem(itemId: string): Promise<ItemSubstituteRelationship[]> {
+    return apiRequest<ItemSubstituteRelationship[]>(`/global/item-substitutes/${itemId}`);
+  },
+
+  async createItemSubstituteRelationship(data: ItemSubstituteCreate): Promise<any> {
+    return apiRequest<any>("/global/item-substitutes", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  },
+
+  async deleteItemSubstituteRelationship(relationshipId: string): Promise<{ success: boolean; message: string }> {
+    return apiRequest<{ success: boolean; message: string }>(`/global/item-substitutes/${relationshipId}`, {
+      method: "DELETE",
+    });
   },
 };
