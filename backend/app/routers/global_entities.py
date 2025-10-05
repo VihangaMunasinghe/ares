@@ -14,7 +14,7 @@ from app.models.global_entities import (
     SubstituteWasteGlobalCreate, SubstituteWasteGlobalOut,
     SubstituteRecipeGlobalCreate, SubstituteRecipeGlobalOut,
     SubstitutesCanReplaceGlobalCreate, SubstitutesCanReplaceGlobalOut,
-    ItemsCatalogOut
+    ItemsCatalogOut, ItemSubstituteRelationshipOut
 )
 
 router = APIRouter(prefix="/global", tags=["global-entities"])
@@ -277,6 +277,89 @@ async def delete_item_waste_global(item_waste_id: str, db: AsyncSession = Depend
     if not deleted:
         raise HTTPException(status_code=404, detail="Item waste relationship not found")
     return {"success": True, "message": "Item waste relationship deleted successfully"}
+
+# === ITEM-SUBSTITUTE RELATIONSHIPS ===
+@router.get("/item-substitutes", response_model=list[ItemSubstituteRelationshipOut])
+async def list_item_substitute_relationships(db: AsyncSession = Depends(get_db)):
+    """
+    Get all item-substitute relationships with joined data from items_global, 
+    substitutes_global, and substitutes_can_replace_global tables
+    """
+    rs = await db.execute(text("""
+        SELECT 
+            scr.id as relationship_id,
+            i.id as item_id,
+            i.name as item_name,
+            i.key as item_key,
+            s.id as substitute_id,
+            s.name as substitute_name,
+            s.key as substitute_key,
+            s.value_per_unit as substitute_value_per_unit,
+            s.lifetime_weeks as substitute_lifetime_weeks,
+            s.created_at as substitute_created_at,
+            s.created_at as relationship_created_at
+        FROM substitutes_can_replace_global scr
+        JOIN items_global i ON scr.item_id = i.id
+        JOIN substitutes_global s ON scr.substitute_id = s.id
+        ORDER BY i.name, s.name
+    """))
+    
+    return [convert_db_row(r) for r in rs.mappings().all()]
+
+@router.get("/item-substitutes/{item_id}", response_model=list[ItemSubstituteRelationshipOut])
+async def list_substitutes_for_item(item_id: str, db: AsyncSession = Depends(get_db)):
+    """
+    Get all substitutes that can replace a specific item
+    """
+    rs = await db.execute(text("""
+        SELECT 
+            scr.id as relationship_id,
+            i.id as item_id,
+            i.name as item_name,
+            i.key as item_key,
+            s.id as substitute_id,
+            s.name as substitute_name,
+            s.key as substitute_key,
+            s.value_per_unit as substitute_value_per_unit,
+            s.lifetime_weeks as substitute_lifetime_weeks,
+            s.created_at as substitute_created_at,
+            s.created_at as relationship_created_at
+        FROM substitutes_can_replace_global scr
+        JOIN items_global i ON scr.item_id = i.id
+        JOIN substitutes_global s ON scr.substitute_id = s.id
+        WHERE scr.item_id = :item_id
+        ORDER BY s.name
+    """), {"item_id": item_id})
+    
+    return [convert_db_row(r) for r in rs.mappings().all()]
+
+@router.post("/item-substitutes", response_model=SubstitutesCanReplaceGlobalOut)
+async def create_item_substitute_relationship(payload: SubstitutesCanReplaceGlobalCreate, db: AsyncSession = Depends(get_db)):
+    """
+    Create a new item-substitute relationship
+    """
+    rs = await db.execute(text("""
+        insert into substitutes_can_replace_global (id, item_id, substitute_id)
+        values (gen_random_uuid(), :item_id, :substitute_id)
+        returning *;
+    """), {
+        "item_id": payload.item_id,
+        "substitute_id": payload.substitute_id
+    })
+    await db.commit()
+    return dict(rs.mappings().first())
+
+@router.delete("/item-substitutes/{relationship_id}")
+async def delete_item_substitute_relationship(relationship_id: str, db: AsyncSession = Depends(get_db)):
+    """
+    Delete an item-substitute relationship
+    """
+    rs = await db.execute(text("delete from substitutes_can_replace_global where id = :id returning id"), {"id": relationship_id})
+    deleted = rs.mappings().first()
+    await db.commit()
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Item-substitute relationship not found")
+    return {"success": True, "message": "Item-substitute relationship deleted successfully"}
 
 # === SUBSTITUTES GLOBAL ===
 @router.get("/substitutes", response_model=list[SubstituteGlobalOut])

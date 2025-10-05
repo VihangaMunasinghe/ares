@@ -188,3 +188,17 @@ class ItemsCatalogOut(BaseModel):
     waste_mappings: int  # Count of waste mappings
     safety: dict  # Safety flags from materials
     created_at: str
+
+# === Item-Substitute Relationships (Joined Data) ===
+class ItemSubstituteRelationshipOut(BaseModel):
+    relationship_id: str  # substitutes_can_replace_global.id
+    item_id: str
+    item_name: str
+    item_key: str
+    substitute_id: str
+    substitute_name: str
+    substitute_key: str
+    substitute_value_per_unit: float
+    substitute_lifetime_weeks: int
+    substitute_created_at: str
+    relationship_created_at: str

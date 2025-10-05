@@ -315,6 +315,26 @@ export interface SubstituteGlobalCreate {
   lifetime_weeks?: number;
 }
 
+// Item-Substitute Relationship interfaces
+export interface ItemSubstituteRelationship {
+  relationship_id: string;
+  item_id: string;
+  item_name: string;
+  item_key: string;
+  substitute_id: string;
+  substitute_name: string;
+  substitute_key: string;
+  substitute_value_per_unit: number;
+  substitute_lifetime_weeks: number;
+  substitute_created_at: string;
+  relationship_created_at: string;
+}
+
+export interface ItemSubstituteCreate {
+  item_id: string;
+  substitute_id: string;
+}
+
 // Items catalog interface (joined data from backend)
 export interface ItemsCatalog {
   id: string;
@@ -418,6 +438,28 @@ export const globalEntitiesApi = {
 
   async deleteItemWaste(itemWasteId: string): Promise<{ success: boolean; message: string }> {
     return apiRequest<{ success: boolean; message: string }>(`/global/item-waste/${itemWasteId}`, {
+      method: "DELETE",
+    });
+  },
+
+  // Item-Substitute relationships
+  async getItemSubstituteRelationships(): Promise<ItemSubstituteRelationship[]> {
+    return apiRequest<ItemSubstituteRelationship[]>("/global/item-substitutes");
+  },
+
+  async getSubstitutesForItem(itemId: string): Promise<ItemSubstituteRelationship[]> {
+    return apiRequest<ItemSubstituteRelationship[]>(`/global/item-substitutes/${itemId}`);
+  },
+
+  async createItemSubstituteRelationship(data: ItemSubstituteCreate): Promise<any> {
+    return apiRequest<any>("/global/item-substitutes", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  },
+
+  async deleteItemSubstituteRelationship(relationshipId: string): Promise<{ success: boolean; message: string }> {
+    return apiRequest<{ success: boolean; message: string }>(`/global/item-substitutes/${relationshipId}`, {
       method: "DELETE",
     });
   },

@@ -3,25 +3,32 @@
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { MdAdd, MdUpload, MdDownload, MdFileDownload, MdSearch } from "react-icons/md"
 import { ItemsTable } from "./components/ItemsTable"
 import { ItemViewDrawer } from "./components/ItemViewDrawerSimple"
 import { ItemSimpleForm } from "./components/ItemSimpleForm"
+import { ItemSubstitutesTable } from "./components/ItemSubstitutesTable"
+import { ItemSubstituteForm } from "./components/ItemSubstituteForm"
 // import { ItemForm } from "./components/ItemForm"
 // import { UploadItems } from "./components/UploadItems"
-import { globalEntitiesApi, type ItemsCatalog } from "@/lib/api/global-entities"
+import { globalEntitiesApi, type ItemsCatalog, type ItemSubstituteRelationship } from "@/lib/api/global-entities"
 import { useToast } from "@/hooks/use-toast"
 
 export default function ItemsPage() {
   const [items, setItems] = useState<ItemsCatalog[]>([])
+  const [itemSubstitutes, setItemSubstitutes] = useState<ItemSubstituteRelationship[]>([])
   const [loading, setLoading] = useState(true)
+  const [substitutesLoading, setSubstitutesLoading] = useState(false)
   const [selectedItem, setSelectedItem] = useState<ItemsCatalog | null>(null)
   const [viewDrawerOpen, setViewDrawerOpen] = useState(false)
   const [createFormOpen, setCreateFormOpen] = useState(false)
   const [editFormOpen, setEditFormOpen] = useState(false)
+  const [substituteFormOpen, setSubstituteFormOpen] = useState(false)
   // const [uploadOpen, setUploadOpen] = useState(false)
   const [editingItem, setEditingItem] = useState<ItemsCatalog | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
+  const [activeTab, setActiveTab] = useState("items")
   const { toast } = useToast()
 
   // Load items from API
@@ -45,6 +52,31 @@ export default function ItemsPage() {
 
     loadItems()
   }, [])
+
+  // Load item-substitute relationships
+  const loadItemSubstitutes = async () => {
+    try {
+      setSubstitutesLoading(true)
+      const relationshipsData = await globalEntitiesApi.getItemSubstituteRelationships()
+      setItemSubstitutes(relationshipsData)
+    } catch (error) {
+      console.error("Error loading item-substitute relationships:", error)
+      toast({
+        title: "Error",
+        description: "Failed to load item-substitute relationships.",
+        variant: "destructive",
+      })
+    } finally {
+      setSubstitutesLoading(false)
+    }
+  }
+
+  // Load item-substitutes when switching to that tab
+  useEffect(() => {
+    if (activeTab === "substitutes") {
+      loadItemSubstitutes()
+    }
+  }, [activeTab])
 
   const filteredItems = items.filter(
     (item) =>
@@ -117,6 +149,36 @@ export default function ItemsPage() {
     } catch (error) {
       console.error("Error reloading items:", error)
     }
+  }
+
+  // Item-Substitute handlers
+  const handleAddSubstituteRelationship = () => {
+    setSubstituteFormOpen(true)
+  }
+
+  const handleDeleteSubstituteRelationship = async (relationshipId: string) => {
+    if (!window.confirm("Are you sure you want to delete this relationship?")) {
+      return
+    }
+
+    try {
+      await globalEntitiesApi.deleteItemSubstituteRelationship(relationshipId)
+      toast({
+        title: "Success",
+        description: "Relationship deleted successfully",
+      })
+      loadItemSubstitutes() // Refresh the list
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to delete relationship",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const handleSubstituteFormSuccess = () => {
+    loadItemSubstitutes() // Refresh the list after create
   }
 
   const handleExportCSV = () => {
@@ -217,20 +279,61 @@ Water Filter Cartridge,equipment,unit,1.2,AquaMars Systems,AMS-FLT-205`
         </div>
       </div>
 
-      {/* Table */}
-      {loading ? (
-        <div className="flex items-center justify-center h-64">
-          <div className="text-muted-foreground">Loading items catalog...</div>
-        </div>
-      ) : (
-        <ItemsTable
-          items={filteredItems}
-          onView={handleView}
-          onEdit={handleEdit}
-          onDuplicate={handleDuplicate}
-          onDelete={handleDelete}
-        />
-      )}
+      {/* Tabs */}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="items">Items Catalog</TabsTrigger>
+          <TabsTrigger value="substitutes">Item → Substitute Relationships</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="items" className="space-y-4">
+          {/* Search & Stats for Items */}
+          <div className="flex items-center justify-between gap-4">
+            <div className="relative flex-1 max-w-md">
+              <MdSearch className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+              <Input
+                placeholder="Search items by name, category, or tags..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+            <div className="flex items-center gap-4 text-sm text-muted-foreground">
+              <span>
+                <strong className="text-foreground">{filteredItems.length}</strong> items
+              </span>
+              <span>•</span>
+              <span>
+                <strong className="text-foreground">{new Set(filteredItems.map((i) => i.category)).size}</strong> categories
+              </span>
+            </div>
+          </div>
+
+          {/* Items Table */}
+          {loading ? (
+            <div className="flex items-center justify-center h-64">
+              <div className="text-muted-foreground">Loading items catalog...</div>
+            </div>
+          ) : (
+            <ItemsTable
+              items={filteredItems}
+              onView={handleView}
+              onEdit={handleEdit}
+              onDuplicate={handleDuplicate}
+              onDelete={handleDelete}
+            />
+          )}
+        </TabsContent>
+
+        <TabsContent value="substitutes" className="space-y-4">
+          <ItemSubstitutesTable
+            relationships={itemSubstitutes}
+            onAdd={handleAddSubstituteRelationship}
+            onDelete={handleDeleteSubstituteRelationship}
+            loading={substitutesLoading}
+          />
+        </TabsContent>
+      </Tabs>
 
       {/* Modals & Drawers */}
       <ItemViewDrawer
@@ -250,6 +353,13 @@ Water Filter Cartridge,equipment,unit,1.2,AquaMars Systems,AMS-FLT-205`
         onOpenChange={setEditFormOpen}
         item={editingItem}
         onSuccess={handleFormSuccess}
+      />
+
+      {/* Item-Substitute Form */}
+      <ItemSubstituteForm
+        open={substituteFormOpen}
+        onOpenChange={setSubstituteFormOpen}
+        onSuccess={handleSubstituteFormSuccess}
       />
 
       {/* Temporarily disabled complex forms
