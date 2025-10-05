@@ -88,135 +88,162 @@ export function MissionSummary({ mission }: MissionSummaryProps) {
 
         </div> */}
 
-        {/* Mission header */}
+        {/* Mission header with NASA-style typography */}
         <div className="flex-1">
-          <div className="flex items-center gap-3">
-            <h1 className="text-3xl font-bold text-foreground">{mission.name}</h1>
-            <Badge variant={getStatusVariant(mission.status)} className="font-technical">{mission.status}</Badge>
+          <div className="relative">
+            <div className="absolute top-0 left-0 w-16 h-1 bg-gradient-to-r from-primary to-accent rounded-full"></div>
+            <div className="flex items-center gap-3 pt-4">
+              <h1 className="text-3xl font-bold text-foreground tracking-tight">{mission.name.toUpperCase()}</h1>
+              <Badge variant={getStatusVariant(mission.status)} className="font-technical uppercase tracking-wider">{mission.status}</Badge>
+            </div>
           </div>
           
-          <div className="mt-4 space-y-1">
-            <p className="text-muted-foreground">{mission.description}</p>
-            <p className="text-sm text-muted-foreground font-technical">Mission ID: {mission.id}</p>
+          <div className="mt-4 space-y-2">
+            <p className="text-muted-foreground font-technical tracking-wide">{mission.description || 'Mission description not provided'}</p>
+            <div className="flex items-center gap-4 text-sm">
+              <span className="text-muted-foreground font-technical tracking-wider">ID: {mission.id.slice(0, 8).toUpperCase()}</span>
+              {mission.owner_id && (
+                <span className="text-muted-foreground font-technical tracking-wider">OWNER: {mission.owner_id.slice(0, 8).toUpperCase()}</span>
+              )}
+            </div>
           </div>
         </div>
         
-        {/* Optimize Mission button positioned in the right corner */}
-        <div className="flex-shrink-0">
+        {/* Optimize Mission button with NASA styling */}
+        <div className="flex-shrink-0 flex gap-2">
           <Button 
             onClick={handleOptimize}
             size="lg"
-            className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-semibold shadow-lg hover:shadow-xl transition-all duration-200 gap-3 px-6 py-3"
+            className="mission-card-glow bg-gradient-to-r from-primary to-accent hover:from-primary/80 hover:to-accent/80 text-white font-technical font-semibold shadow-lg hover:shadow-xl transition-all duration-200 gap-3 px-6 py-3 tracking-wide uppercase"
           >
+            <MdTune className="w-5 h-5" />
             Optimize Mission
+          </Button>
+          <Button variant="outline" className="gap-2 bg-transparent font-technical" onClick={handleDelete} disabled={isDeleting}>
+            <MdDelete className="w-4 h-4" />
+            {isDeleting ? 'Deleting...' : 'Delete'}
           </Button>
         </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <MdCalendarToday className="w-4 h-4 text-muted-foreground" />
-              Duration & Phases
+        <Card className="border-border/50 bg-card/80 backdrop-blur-sm mission-card-glow relative overflow-hidden group hover:scale-105 transition-all duration-300">
+          <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-accent/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+          <CardHeader className="pb-3 relative z-10">
+            <CardTitle className="text-sm font-medium font-technical tracking-wider uppercase flex items-center gap-2 text-muted-foreground">
+              <MdCalendarToday className="w-4 h-4 text-primary" />
+              Mission Timeline
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-2">
-            <div className="flex justify-between">
-              <span className="text-sm text-muted-foreground">Total Duration:</span>
-              <span className="text-sm font-medium font-technical">{mission.duration_weeks} weeks</span>
+          <CardContent className="space-y-3 relative z-10">
+            <div className="flex justify-between items-center">
+              <span className="text-sm text-muted-foreground font-technical">Total Duration:</span>
+              <span className="text-lg font-bold font-technical text-foreground">{mission.duration_weeks}w</span>
             </div>
-            <div className="flex justify-between">
-              <span className="text-sm text-muted-foreground">Transit:</span>
-              <span className="text-sm font-medium font-technical">{mission.transit_weeks}w</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-sm text-muted-foreground">Surface:</span>
-              <span className="text-sm font-medium font-technical">{mission.surface_weeks}w</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-sm text-muted-foreground">Return:</span>
-              <span className="text-sm font-medium font-technical">{mission.return_weeks}w</span>
+            <div className="space-y-2">
+              <div className="flex justify-between">
+                <span className="text-xs text-muted-foreground font-technical uppercase tracking-wider">Transit:</span>
+                <span className="text-sm font-medium font-technical text-accent">{mission.transit_weeks}w</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-xs text-muted-foreground font-technical uppercase tracking-wider">Surface Ops:</span>
+                <span className="text-sm font-medium font-technical text-primary">{mission.surface_weeks}w</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-xs text-muted-foreground font-technical uppercase tracking-wider">Return:</span>
+                <span className="text-sm font-medium font-technical text-accent">{mission.return_weeks}w</span>
+              </div>
             </div>
             {mission.mission_start_date && (
-              <div className="flex justify-between">
-                <span className="text-sm text-muted-foreground">Start Date:</span>
-                <span className="text-sm font-medium font-technical">{new Date(mission.mission_start_date).toLocaleDateString()}</span>
+              <div className="pt-2 border-t border-border/50">
+                <div className="flex justify-between">
+                  <span className="text-xs text-muted-foreground font-technical uppercase tracking-wider">Launch Date:</span>
+                  <span className="text-sm font-medium font-technical text-foreground">{new Date(mission.mission_start_date).toLocaleDateString()}</span>
+                </div>
               </div>
             )}
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <MdPeople className="w-4 h-4 text-muted-foreground" />
-              Crew
+        <Card className="border-border/50 bg-card/80 backdrop-blur-sm mission-card-glow relative overflow-hidden group hover:scale-105 transition-all duration-300">
+          <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-accent/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+          <CardHeader className="pb-3 relative z-10">
+            <CardTitle className="text-sm font-medium font-technical tracking-wider uppercase flex items-center gap-2 text-muted-foreground">
+              <MdPeople className="w-4 h-4 text-primary" />
+              Crew Operations
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-2">
-            <div className="flex justify-between">
-              <span className="text-sm text-muted-foreground">Crew Count:</span>
-              <span className="text-sm font-medium font-technical">{mission.crew_count}</span>
+          <CardContent className="space-y-3 relative z-10">
+            <div className="flex justify-between items-center">
+              <span className="text-sm text-muted-foreground font-technical">Crew Size:</span>
+              <span className="text-lg font-bold font-technical text-foreground">{mission.crew_count}</span>
             </div>
-            <div className="flex justify-between">
-              <span className="text-sm text-muted-foreground">Hours/Week:</span>
-              <span className="text-sm font-medium font-technical">{mission.crew_hours_per_week}h</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-sm text-muted-foreground">Total Hours:</span>
-              <span className="text-sm font-medium font-technical">
-                {mission.crew_count * mission.crew_hours_per_week * mission.duration_weeks}h
-              </span>
+            <div className="space-y-2">
+              <div className="flex justify-between">
+                <span className="text-xs text-muted-foreground font-technical uppercase tracking-wider">Hours/Week:</span>
+                <span className="text-sm font-medium font-technical text-accent">{mission.crew_hours_per_week}h</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-xs text-muted-foreground font-technical uppercase tracking-wider">Total Hours:</span>
+                <span className="text-sm font-medium font-technical text-primary">
+                  {mission.crew_count * mission.crew_hours_per_week * mission.duration_weeks}h
+                </span>
+              </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <MdBuild className="w-4 h-4 text-muted-foreground" />
-              Resources
+        <Card className="border-border/50 bg-card/80 backdrop-blur-sm mission-card-glow relative overflow-hidden group hover:scale-105 transition-all duration-300">
+          <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-accent/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+          <CardHeader className="pb-3 relative z-10">
+            <CardTitle className="text-sm font-medium font-technical tracking-wider uppercase flex items-center gap-2 text-muted-foreground">
+              <MdBuild className="w-4 h-4 text-primary" />
+              Resource Systems
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-2">
-            <div className="flex justify-between">
-              <span className="text-sm text-muted-foreground">Printer Capacity:</span>
-              <span className="text-sm font-medium font-technical">{mission.printer_capacity_kg_per_week} kg/w</span>
+          <CardContent className="space-y-3 relative z-10">
+            <div className="flex justify-between items-center">
+              <span className="text-sm text-muted-foreground font-technical">3D Printer:</span>
+              <span className="text-lg font-bold font-technical text-foreground">{mission.printer_capacity_kg_per_week} kg/w</span>
             </div>
-            <div className="flex justify-between">
-              <span className="text-sm text-muted-foreground">Tools Available:</span>
-              <span className="text-sm font-medium font-technical">{mission.tools_available.length}</span>
-            </div>
-            <div className="text-xs text-muted-foreground mt-2">
-              {mission.tools_available.length > 0 ? mission.tools_available.join(", ") : "No tools specified"}
+            <div className="space-y-2">
+              <div className="flex justify-between">
+                <span className="text-xs text-muted-foreground font-technical uppercase tracking-wider">Tools:</span>
+                <span className="text-sm font-medium font-technical text-accent">{mission.tools_available.length} Available</span>
+              </div>
+              <div className="text-xs text-muted-foreground font-technical mt-2 p-2 bg-secondary/30 rounded border border-border/30">
+                {mission.tools_available.length > 0 ? mission.tools_available.join(", ") : "No tools configured"}
+              </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <MdRocket className="w-4 h-4 text-muted-foreground" />
-              Production Capacity
+        <Card className="border-border/50 bg-card/80 backdrop-blur-sm mission-card-glow relative overflow-hidden group hover:scale-105 transition-all duration-300">
+          <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-accent/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+          <CardHeader className="pb-3 relative z-10">
+            <CardTitle className="text-sm font-medium font-technical tracking-wider uppercase flex items-center gap-2 text-muted-foreground">
+              <MdRocket className="w-4 h-4 text-primary" />
+              Production Stats
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-2">
-            <div className="flex justify-between">
-              <span className="text-sm text-muted-foreground">Weekly:</span>
-              <span className="text-sm font-medium font-technical">{mission.printer_capacity_kg_per_week} kg</span>
+          <CardContent className="space-y-3 relative z-10">
+            <div className="flex justify-between items-center">
+              <span className="text-sm text-muted-foreground font-technical">Weekly Output:</span>
+              <span className="text-lg font-bold font-technical text-foreground">{mission.printer_capacity_kg_per_week} kg</span>
             </div>
-            <div className="flex justify-between">
-              <span className="text-sm text-muted-foreground">Surface Total:</span>
-              <span className="text-sm font-medium">
-                {mission.printer_capacity_kg_per_week * mission.surface_weeks} kg
-              </span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-sm text-muted-foreground">Mission Total:</span>
-              <span className="text-sm font-medium">
-                {mission.printer_capacity_kg_per_week * mission.duration_weeks} kg
-              </span>
+            <div className="space-y-2">
+              <div className="flex justify-between">
+                <span className="text-xs text-muted-foreground font-technical uppercase tracking-wider">Surface Total:</span>
+                <span className="text-sm font-medium font-technical text-accent">
+                  {mission.printer_capacity_kg_per_week * mission.surface_weeks} kg
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-xs text-muted-foreground font-technical uppercase tracking-wider">Mission Total:</span>
+                <span className="text-sm font-medium font-technical text-primary">
+                  {mission.printer_capacity_kg_per_week * mission.duration_weeks} kg
+                </span>
+              </div>
             </div>
           </CardContent>
         </Card>

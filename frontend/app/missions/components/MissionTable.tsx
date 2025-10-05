@@ -91,12 +91,12 @@ export function MissionTable() {
 
   if (loading) {
     return (
-      <Card>
+      <Card className="border-border/50 bg-card/80 backdrop-blur-sm">
         <CardContent className="flex flex-col items-center justify-center py-16">
           <div className="text-center space-y-4">
-            <div className="animate-spin text-4xl">🔄</div>
-            <h3 className="text-xl font-semibold text-foreground">Loading missions...</h3>
-            <p className="text-muted-foreground">Please wait while we fetch your missions</p>
+            <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+            <h3 className="text-xl font-semibold text-foreground font-technical tracking-wide">LOADING MISSIONS</h3>
+            <p className="text-muted-foreground font-technical tracking-wider text-sm uppercase">Establishing connection • Please wait</p>
           </div>
         </CardContent>
       </Card>
@@ -105,15 +105,17 @@ export function MissionTable() {
 
   if (error) {
     return (
-      <Card>
+      <Card className="border-destructive/20 bg-destructive/10">
         <CardContent className="flex flex-col items-center justify-center py-16">
           <div className="text-center space-y-4">
-            <div className="text-6xl">⚠️</div>
-            <h3 className="text-xl font-semibold text-foreground">Error loading missions</h3>
-            <p className="text-muted-foreground max-w-sm">{error}</p>
-            <Button onClick={fetchMissions} className="gap-2 mt-4">
+            <div className="w-16 h-16 rounded-full bg-destructive/20 flex items-center justify-center">
+              <span className="text-2xl">⚠️</span>
+            </div>
+            <h3 className="text-xl font-semibold text-foreground font-technical tracking-wide">MISSION DATA ERROR</h3>
+            <p className="text-muted-foreground max-w-sm font-technical tracking-wider text-sm">{error}</p>
+            <Button onClick={fetchMissions} className="gap-2 mt-4 font-technical">
               <MdRefresh className="w-4 h-4" />
-              Try again
+              Retry Connection
             </Button>
           </div>
         </CardContent>
@@ -123,16 +125,18 @@ export function MissionTable() {
 
   if (missions.length === 0) {
     return (
-      <Card>
+      <Card className="border-border/50 bg-card/80 backdrop-blur-sm">
         <CardContent className="flex flex-col items-center justify-center py-16">
           <div className="text-center space-y-4">
-            <div className="text-6xl">🚀</div>
-            <h3 className="text-xl font-semibold text-foreground">No missions yet</h3>
-            <p className="text-muted-foreground max-w-sm">Get started by creating your first Mars mission</p>
+            <div className="w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center">
+              <span className="text-2xl">🚀</span>
+            </div>
+            <h3 className="text-xl font-semibold text-foreground font-technical tracking-wide">NO MISSIONS CONFIGURED</h3>
+            <p className="text-muted-foreground max-w-sm font-technical tracking-wider text-sm">Initialize your Mars operations by creating your first mission</p>
             <Link href="/missions/new">
-              <Button className="gap-2 mt-4">
+              <Button className="gap-2 mt-4 font-technical tracking-wide uppercase">
                 <MdAdd className="w-4 h-4" />
-                Create your first mission
+                Create First Mission
               </Button>
             </Link>
           </div>
@@ -142,16 +146,16 @@ export function MissionTable() {
   }
 
   return (
-    <Card>
+    <Card className="border-border/50 bg-card/80 backdrop-blur-sm">
       <CardContent className="p-0">
-        <div className="flex justify-between items-center p-4 border-b">
-          <h2 className="text-lg font-semibold">Missions ({missions.length})</h2>
+        <div className="flex justify-between items-center p-4 border-b border-border/50">
+          <h2 className="text-lg font-semibold font-technical tracking-wide text-foreground">MISSIONS ({missions.length})</h2>
           <div className="flex gap-2">
-            <Button onClick={() => setCreateDialogOpen(true)} className="gap-2">
+            <Button onClick={() => setCreateDialogOpen(true)} className="gap-2 font-technical tracking-wide uppercase">
               <MdAdd className="w-4 h-4" />
               New Mission
             </Button>
-            <Button onClick={fetchMissions} variant="outline" size="sm" className="gap-2">
+            <Button onClick={fetchMissions} variant="outline" size="sm" className="gap-2 font-technical">
               <MdRefresh className="w-4 h-4" />
               Refresh
             </Button>
@@ -159,41 +163,41 @@ export function MissionTable() {
         </div>
         <Table>
           <TableHeader>
-            <TableRow>
-              <TableHead>Mission Name</TableHead>
-              <TableHead>Description</TableHead>
-              <TableHead>Duration</TableHead>
-              <TableHead>Transit</TableHead>
-              <TableHead>Surface</TableHead>
-              <TableHead>Return</TableHead>
-              <TableHead>Crew</TableHead>
-              <TableHead>Crew Hours/Week</TableHead>
-              <TableHead>Printer Capacity</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
+            <TableRow className="hover:bg-transparent">
+              <TableHead className="font-technical tracking-wider uppercase text-xs text-muted-foreground">Mission Name</TableHead>
+              <TableHead className="font-technical tracking-wider uppercase text-xs text-muted-foreground">Description</TableHead>
+              <TableHead className="font-technical tracking-wider uppercase text-xs text-muted-foreground">Duration</TableHead>
+              <TableHead className="font-technical tracking-wider uppercase text-xs text-muted-foreground">Transit</TableHead>
+              <TableHead className="font-technical tracking-wider uppercase text-xs text-muted-foreground">Surface</TableHead>
+              <TableHead className="font-technical tracking-wider uppercase text-xs text-muted-foreground">Return</TableHead>
+              <TableHead className="font-technical tracking-wider uppercase text-xs text-muted-foreground">Crew</TableHead>
+              <TableHead className="font-technical tracking-wider uppercase text-xs text-muted-foreground">Hours/Week</TableHead>
+              <TableHead className="font-technical tracking-wider uppercase text-xs text-muted-foreground">Printer Cap.</TableHead>
+              <TableHead className="font-technical tracking-wider uppercase text-xs text-muted-foreground">Status</TableHead>
+              <TableHead className="text-right font-technical tracking-wider uppercase text-xs text-muted-foreground">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {missions.map((mission) => (
-              <TableRow key={mission.id}>
-                <TableCell className="font-medium">{mission.name}</TableCell>
-                <TableCell className="max-w-xs truncate" title={mission.description || ''}>
+              <TableRow key={mission.id} className="border-border/30 hover:bg-secondary/30">
+                <TableCell className="font-medium font-technical text-foreground">{mission.name}</TableCell>
+                <TableCell className="max-w-xs truncate font-technical text-muted-foreground" title={mission.description || ''}>
                   {mission.description || 'No description'}
                 </TableCell>
-                <TableCell>{mission.duration_weeks}w</TableCell>
-                <TableCell>{mission.transit_weeks}w</TableCell>
-                <TableCell>{mission.surface_weeks}w</TableCell>
-                <TableCell>{mission.return_weeks}w</TableCell>
-                <TableCell>{mission.crew_count}</TableCell>
-                <TableCell>{mission.crew_hours_per_week}h</TableCell>
-                <TableCell>{mission.printer_capacity_kg_per_week}kg/w</TableCell>
+                <TableCell className="font-technical text-accent">{mission.duration_weeks}w</TableCell>
+                <TableCell className="font-technical text-muted-foreground">{mission.transit_weeks}w</TableCell>
+                <TableCell className="font-technical text-primary">{mission.surface_weeks}w</TableCell>
+                <TableCell className="font-technical text-muted-foreground">{mission.return_weeks}w</TableCell>
+                <TableCell className="font-technical text-foreground">{mission.crew_count}</TableCell>
+                <TableCell className="font-technical text-muted-foreground">{mission.crew_hours_per_week}h</TableCell>
+                <TableCell className="font-technical text-accent">{mission.printer_capacity_kg_per_week}kg/w</TableCell>
                 <TableCell>
-                  <Badge variant={getStatusVariant(mission.status)}>{mission.status}</Badge>
+                  <Badge variant={getStatusVariant(mission.status)} className="font-technical uppercase tracking-wider">{mission.status}</Badge>
                 </TableCell>
                 <TableCell className="text-right">
-                  <div className="flex justify-end gap-2">
+                  <div className="flex justify-end gap-1">
                     <Link href={`/missions/${mission.id}`}>
-                      <Button variant="ghost" size="sm" className="gap-1">
+                      <Button variant="ghost" size="sm" className="gap-1 font-technical">
                         <MdVisibility className="w-4 h-4" />
                         View
                       </Button>
@@ -201,7 +205,7 @@ export function MissionTable() {
                     <Button 
                       variant="ghost" 
                       size="sm" 
-                      className="gap-1"
+                      className="gap-1 font-technical"
                       onClick={() => handleEdit(mission)}
                     >
                       <MdEdit className="w-4 h-4" />
@@ -210,7 +214,7 @@ export function MissionTable() {
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="gap-1 text-destructive hover:text-destructive"
+                      className="gap-1 text-destructive hover:text-destructive font-technical"
                       onClick={() => handleDelete(mission.id, mission.name)}
                     >
                       <MdDelete className="w-4 h-4" />
