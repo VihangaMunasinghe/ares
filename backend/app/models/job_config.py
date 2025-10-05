@@ -3,7 +3,19 @@ from typing import Optional, List, Literal
 from datetime import datetime
 from uuid import UUID
 
-JobStatus = Literal["pending", "running", "completed", "failed", "cancelled"]
+JobStatus = Literal[
+    "draft",           # Step 1: Job created, basic details saved
+    "entities_config", # Step 2: Entities selected and enabled
+    "inventory_config", # Step 3: Inventories configured
+    "demands_config",  # Step 4: Demands and deadlines configured
+    "resources_config", # Step 5: Resources and capacity configured
+    "ready",           # Step 6: Ready to run
+    "pending",         # Queued for execution
+    "running",         # Currently executing
+    "completed",       # Successfully completed
+    "failed",          # Failed during execution
+    "cancelled"        # Cancelled by user
+]
 
 # === Main Job Model ===
 class JobCreate(BaseModel):

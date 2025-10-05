@@ -32,14 +32,40 @@ router = APIRouter(prefix="/jobs", tags=["jobs"])
 @router.get("/by-mission/{mission_id}", response_model=list[JobOut])
 async def list_jobs_by_mission(mission_id: str, db: AsyncSession = Depends(get_db)):
     rs = await db.execute(text("select * from jobs where mission_id = :mission_id order by created_at desc"), {"mission_id": mission_id})
-    return [dict(r) for r in rs.mappings().all()]
+    jobs = []
+    for row in rs.mappings().all():
+        job_dict = dict(row)
+        # Convert UUID objects to strings
+        if job_dict.get('id'):
+            job_dict['id'] = str(job_dict['id'])
+        if job_dict.get('mission_id'):
+            job_dict['mission_id'] = str(job_dict['mission_id'])
+        if job_dict.get('created_by'):
+            job_dict['created_by'] = str(job_dict['created_by'])
+        # Convert datetime objects to ISO strings
+        if job_dict.get('created_at'):
+            job_dict['created_at'] = job_dict['created_at'].isoformat()
+        if job_dict.get('updated_at'):
+            job_dict['updated_at'] = job_dict['updated_at'].isoformat()
+        if job_dict.get('started_at'):
+            job_dict['started_at'] = job_dict['started_at'].isoformat()
+        if job_dict.get('completed_at'):
+            job_dict['completed_at'] = job_dict['completed_at'].isoformat()
+        # Parse JSON params if it's a string
+        if job_dict.get('params') and isinstance(job_dict['params'], str):
+            try:
+                job_dict['params'] = json.loads(job_dict['params'])
+            except json.JSONDecodeError:
+                job_dict['params'] = {}
+        jobs.append(job_dict)
+    return jobs
 
 
 @router.post("", response_model=JobOut)
 async def create_job(payload: JobCreate, db: AsyncSession = Depends(get_db)):
     rs = await db.execute(text("""
         insert into jobs (id, mission_id, created_by, status, total_weeks, w_mass, w_value, w_crew, w_energy, w_risk, w_make, w_carry, w_shortage, params)
-        values (gen_random_uuid(), :mission_id, null, 'pending', :total_weeks, :w_mass, :w_value, :w_crew, :w_energy, :w_risk, :w_make, :w_carry, :w_shortage, :params)
+        values (gen_random_uuid(), :mission_id, null, 'draft', :total_weeks, :w_mass, :w_value, :w_crew, :w_energy, :w_risk, :w_make, :w_carry, :w_shortage, :params)
         returning *;
     """), {
         "mission_id": payload.mission_id,
@@ -52,10 +78,33 @@ async def create_job(payload: JobCreate, db: AsyncSession = Depends(get_db)):
         "w_make": payload.w_make,
         "w_carry": payload.w_carry,
         "w_shortage": payload.w_shortage,
-        "params": payload.params
+        "params": json.dumps(payload.params) if payload.params else "{}"
     })
     await db.commit()
-    return dict(rs.mappings().first())
+    job_dict = dict(rs.mappings().first())
+    # Convert UUID objects to strings
+    if job_dict.get('id'):
+        job_dict['id'] = str(job_dict['id'])
+    if job_dict.get('mission_id'):
+        job_dict['mission_id'] = str(job_dict['mission_id'])
+    if job_dict.get('created_by'):
+        job_dict['created_by'] = str(job_dict['created_by'])
+    # Convert datetime objects to ISO strings
+    if job_dict.get('created_at'):
+        job_dict['created_at'] = job_dict['created_at'].isoformat()
+    if job_dict.get('updated_at'):
+        job_dict['updated_at'] = job_dict['updated_at'].isoformat()
+    if job_dict.get('started_at'):
+        job_dict['started_at'] = job_dict['started_at'].isoformat()
+    if job_dict.get('completed_at'):
+        job_dict['completed_at'] = job_dict['completed_at'].isoformat()
+    # Parse JSON params if it's a string
+    if job_dict.get('params') and isinstance(job_dict['params'], str):
+        try:
+            job_dict['params'] = json.loads(job_dict['params'])
+        except json.JSONDecodeError:
+            job_dict['params'] = {}
+    return job_dict
 
 @router.get("/{job_id}", response_model=JobOut)
 async def get_job(job_id: str, db: AsyncSession = Depends(get_db)):
@@ -63,7 +112,30 @@ async def get_job(job_id: str, db: AsyncSession = Depends(get_db)):
     job = rs.mappings().first()
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
-    return dict(job)
+    job_dict = dict(job)
+    # Convert UUID objects to strings
+    if job_dict.get('id'):
+        job_dict['id'] = str(job_dict['id'])
+    if job_dict.get('mission_id'):
+        job_dict['mission_id'] = str(job_dict['mission_id'])
+    if job_dict.get('created_by'):
+        job_dict['created_by'] = str(job_dict['created_by'])
+    # Convert datetime objects to ISO strings
+    if job_dict.get('created_at'):
+        job_dict['created_at'] = job_dict['created_at'].isoformat()
+    if job_dict.get('updated_at'):
+        job_dict['updated_at'] = job_dict['updated_at'].isoformat()
+    if job_dict.get('started_at'):
+        job_dict['started_at'] = job_dict['started_at'].isoformat()
+    if job_dict.get('completed_at'):
+        job_dict['completed_at'] = job_dict['completed_at'].isoformat()
+    # Parse JSON params if it's a string
+    if job_dict.get('params') and isinstance(job_dict['params'], str):
+        try:
+            job_dict['params'] = json.loads(job_dict['params'])
+        except json.JSONDecodeError:
+            job_dict['params'] = {}
+    return job_dict
 
 @router.delete("/{job_id}")
 async def delete_job(job_id: str, db: AsyncSession = Depends(get_db)):
@@ -73,6 +145,114 @@ async def delete_job(job_id: str, db: AsyncSession = Depends(get_db)):
     if not deleted:
         raise HTTPException(status_code=404, detail="Job not found")
     return {"success": True, "message": "Job deleted successfully"}
+
+@router.patch("/{job_id}/status")
+async def update_job_status(job_id: str, payload: dict, db: AsyncSession = Depends(get_db)):
+    status = payload.get("status")
+    if not status:
+        raise HTTPException(status_code=400, detail="Status is required")
+    
+    rs = await db.execute(text("update jobs set status = :status where id = :job_id returning id"), 
+                         {"status": status, "job_id": job_id})
+    updated = rs.mappings().first()
+    await db.commit()
+    
+    if not updated:
+        raise HTTPException(status_code=404, detail="Job not found")
+    return {"success": True}
+
+@router.get("/{job_id}/configuration")
+async def get_job_configuration(job_id: str, db: AsyncSession = Depends(get_db)):
+    # Get job details
+    job_rs = await db.execute(text("select * from jobs where id = :id"), {"id": job_id})
+    job = job_rs.mappings().first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    
+    job_dict = dict(job)
+    # Convert UUID objects to strings
+    if job_dict.get('id'):
+        job_dict['id'] = str(job_dict['id'])
+    if job_dict.get('mission_id'):
+        job_dict['mission_id'] = str(job_dict['mission_id'])
+    if job_dict.get('created_by'):
+        job_dict['created_by'] = str(job_dict['created_by'])
+    # Convert datetime objects to ISO strings
+    if job_dict.get('created_at'):
+        job_dict['created_at'] = job_dict['created_at'].isoformat()
+    if job_dict.get('updated_at'):
+        job_dict['updated_at'] = job_dict['updated_at'].isoformat()
+    if job_dict.get('started_at'):
+        job_dict['started_at'] = job_dict['started_at'].isoformat()
+    if job_dict.get('completed_at'):
+        job_dict['completed_at'] = job_dict['completed_at'].isoformat()
+    # Parse JSON params if it's a string
+    if job_dict.get('params') and isinstance(job_dict['params'], str):
+        try:
+            job_dict['params'] = json.loads(job_dict['params'])
+        except json.JSONDecodeError:
+            job_dict['params'] = {}
+    
+    # Get enabled entities
+    materials_rs = await db.execute(text("select material_id from job_enabled_materials where job_id = :job_id"), {"job_id": job_id})
+    selected_materials = [str(row.material_id) for row in materials_rs.mappings().all()]
+    
+    methods_rs = await db.execute(text("select method_id from job_enabled_methods where job_id = :job_id"), {"job_id": job_id})
+    selected_methods = [str(row.method_id) for row in methods_rs.mappings().all()]
+    
+    outputs_rs = await db.execute(text("select output_id from job_enabled_outputs where job_id = :job_id"), {"job_id": job_id})
+    selected_outputs = [str(row.output_id) for row in outputs_rs.mappings().all()]
+    
+    items_rs = await db.execute(text("select item_id from job_enabled_items where job_id = :job_id"), {"job_id": job_id})
+    selected_items = [str(row.item_id) for row in items_rs.mappings().all()]
+    
+    substitutes_rs = await db.execute(text("select substitute_id from job_enabled_substitutes where job_id = :job_id"), {"job_id": job_id})
+    selected_substitutes = [str(row.substitute_id) for row in substitutes_rs.mappings().all()]
+    
+    # Get inventories
+    material_inv_rs = await db.execute(text("select material_id, qty_kg from job_material_inventory where job_id = :job_id"), {"job_id": job_id})
+    material_inventories = {str(row.material_id): row.qty_kg for row in material_inv_rs.mappings().all()}
+    
+    output_inv_rs = await db.execute(text("select output_id, qty_kg from job_output_inventory where job_id = :job_id"), {"job_id": job_id})
+    output_inventories = {str(row.output_id): row.qty_kg for row in output_inv_rs.mappings().all()}
+    
+    item_inv_rs = await db.execute(text("select item_id, qty_units from job_item_inventory where job_id = :job_id"), {"job_id": job_id})
+    item_inventories = {str(row.item_id): row.qty_units for row in item_inv_rs.mappings().all()}
+    
+    substitute_inv_rs = await db.execute(text("select substitute_id, qty_units from job_substitute_inventory where job_id = :job_id"), {"job_id": job_id})
+    substitute_inventories = {str(row.substitute_id): row.qty_units for row in substitute_inv_rs.mappings().all()}
+    
+    # Get demands and deadlines
+    demands_rs = await db.execute(text("select item_id, week, amount from job_item_demands where job_id = :job_id"), {"job_id": job_id})
+    item_demands = [{"itemId": str(row.item_id), "week": row.week, "amount": row.amount} for row in demands_rs.mappings().all()]
+    
+    deadlines_rs = await db.execute(text("select item_id, week, amount from job_deadlines where job_id = :job_id"), {"job_id": job_id})
+    item_deadlines = [{"itemId": str(row.item_id), "week": row.week, "amount": row.amount} for row in deadlines_rs.mappings().all()]
+    
+    # Get resources
+    resources_rs = await db.execute(text("select week, crew_available, energy_available from job_week_resources where job_id = :job_id order by week"), {"job_id": job_id})
+    weekly_resources = [{"week": row.week, "crewAvailable": row.crew_available, "energyAvailable": row.energy_available} for row in resources_rs.mappings().all()]
+    
+    # Get method capacities
+    capacities_rs = await db.execute(text("select method_id, week, max_capacity_kg, available from job_method_capacity where job_id = :job_id"), {"job_id": job_id})
+    method_capacities = [{"methodId": str(row.method_id), "week": row.week, "maxCapacityKg": row.max_capacity_kg, "available": row.available} for row in capacities_rs.mappings().all()]
+    
+    return {
+        "job": job_dict,
+        "selectedMaterials": selected_materials,
+        "selectedMethods": selected_methods,
+        "selectedOutputs": selected_outputs,
+        "selectedItems": selected_items,
+        "selectedSubstitutes": selected_substitutes,
+        "materialInventories": material_inventories,
+        "outputInventories": output_inventories,
+        "itemInventories": item_inventories,
+        "substituteInventories": substitute_inventories,
+        "itemDemands": item_demands,
+        "itemDeadlines": item_deadlines,
+        "weeklyResources": weekly_resources,
+        "methodCapacities": method_capacities
+    }
 
 # === ENTITY ENABLEMENT ===
 @router.post("/{job_id}/enable/materials")

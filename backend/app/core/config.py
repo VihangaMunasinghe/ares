@@ -21,7 +21,7 @@ def get_settings() -> Settings:
         SUPABASE_ANON_KEY=os.getenv("SUPABASE_ANON_KEY"),
         SUPABASE_SERVICE_ROLE_KEY=os.getenv("SUPABASE_SERVICE_ROLE_KEY"),
         AUTH_DISABLED=os.getenv("AUTH_DISABLED", "true").lower() == "true",
-        CORS_ORIGINS=[o.strip() for o in os.getenv("CORS_ORIGINS", "*").split(",") if o.strip()],
+        CORS_ORIGINS=[o.strip() for o in os.getenv("CORS_ORIGINS", "*").split(",") if o.strip()] if os.getenv("CORS_ORIGINS") else ["*"],
         
         # RabbitMQ Settings
         RABBITMQ_HOST=os.getenv("RABBITMQ_HOST"),

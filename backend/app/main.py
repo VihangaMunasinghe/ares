@@ -26,12 +26,20 @@ app = FastAPI(title="NASA Mission Optimizer Backend", version="0.1.0")
 consumer = None
 consumer_thread = None
 
+# CORS configuration
 origins = settings.CORS_ORIGINS or ["*"]
+
+# If CORS_ORIGINS is not set or is empty, allow all origins for development
+if not origins or origins == [] or origins == ["*"]:
+    origins = ["*"]
+
+print(f"CORS Origins configured: {origins}")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins if origins != ["*"] else ["*"],
+    allow_origins=origins,
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     allow_headers=["*"],
 )
 
@@ -74,6 +82,15 @@ def validate_environment():
 async def health():
     await ping()
     return {"ok": True}
+
+@app.get("/cors-test")
+async def cors_test():
+    """Test endpoint to verify CORS is working"""
+    return {
+        "message": "CORS is working!",
+        "cors_origins": origins,
+        "timestamp": "2024-01-01T00:00:00Z"
+    }
 
 @app.get("/setup")
 async def setup_info():
