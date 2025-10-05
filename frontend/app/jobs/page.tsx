@@ -198,31 +198,23 @@ export default function JobsPage() {
   if (loading) {
     return (
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            {missionId && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => router.push("/missions")}
-                className="gap-2 hover:bg-muted"
-              >
-                <MdArrowBack className="w-4 h-4" />
-              </Button>
-            )}
-            <div>
-              <h1 className="text-3xl font-bold text-foreground">
-                {missionId ? "Mission Jobs" : "All Jobs"}
-              </h1>
-              <p className="text-muted-foreground mt-1">Loading jobs...</p>
-            </div>
-          </div>
+        {/* Header with NASA-style typography */}
+        <div className="relative">
+          <div className="absolute top-0 left-0 w-20 h-1 bg-gradient-to-r from-primary to-accent rounded-full"></div>
+          <h1 className="text-3xl font-bold text-foreground tracking-tight pt-4 font-technical">
+            {missionId ? "MISSION JOBS" : "ALL JOBS"}
+          </h1>
+          <p className="text-muted-foreground mt-2 font-technical tracking-wide">
+            Loading optimization jobs • Sol {new Date().getFullYear() - 2020 + 1}
+          </p>
         </div>
-        <Card>
-          <CardContent className="flex items-center justify-center h-64">
-            <div className="text-center space-y-4">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
-              <p className="text-muted-foreground">Loading jobs...</p>
+        <Card className="border-border/50 bg-card/50 backdrop-blur-sm">
+          <CardContent className="flex items-center justify-center py-12">
+            <div className="text-center space-y-2">
+              <div className="animate-pulse">
+                <div className="h-4 bg-muted rounded w-32 mx-auto"></div>
+              </div>
+              <p className="text-muted-foreground font-technical">Loading jobs catalog...</p>
             </div>
           </CardContent>
         </Card>
@@ -233,37 +225,27 @@ export default function JobsPage() {
   if (error) {
     return (
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            {missionId && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => router.push("/missions")}
-                className="gap-2 hover:bg-muted"
-              >
-                <MdArrowBack className="w-4 h-4" />
-              </Button>
-            )}
-            <div>
-              <h1 className="text-3xl font-bold text-foreground">
-                {missionId ? "Mission Jobs" : "All Jobs"}
-              </h1>
-              <p className="text-muted-foreground mt-1">Error loading jobs</p>
-            </div>
-          </div>
+        {/* Header with NASA-style typography */}
+        <div className="relative">
+          <div className="absolute top-0 left-0 w-20 h-1 bg-gradient-to-r from-primary to-accent rounded-full"></div>
+          <h1 className="text-3xl font-bold text-foreground tracking-tight pt-4 font-technical">
+            {missionId ? "MISSION JOBS" : "ALL JOBS"}
+          </h1>
+          <p className="text-muted-foreground mt-2 font-technical tracking-wide">
+            Error loading optimization jobs • Sol {new Date().getFullYear() - 2020 + 1}
+          </p>
         </div>
-        <Card>
-          <CardContent className="flex items-center justify-center h-64">
+        <Card className="border-border/50 bg-card/50 backdrop-blur-sm">
+          <CardContent className="flex items-center justify-center py-12">
             <div className="text-center space-y-4">
               <MdError className="w-12 h-12 text-red-500 mx-auto" />
               <div>
-                <p className="text-red-600 font-medium">Failed to load jobs</p>
-                <p className="text-muted-foreground text-sm mt-1">{error}</p>
+                <p className="text-red-600 font-medium font-technical">Failed to load jobs</p>
+                <p className="text-muted-foreground text-sm mt-1 font-technical">{error}</p>
                 <Button
                   variant="outline"
                   size="sm"
-                  className="mt-4"
+                  className="mt-4 font-technical"
                   onClick={() => window.location.reload()}
                 >
                   Try Again
@@ -278,6 +260,20 @@ export default function JobsPage() {
 
   return (
     <div className="space-y-6">
+      {/* Header with NASA-style typography */}
+      <div className="relative">
+        <div className="absolute top-0 left-0 w-20 h-1 bg-gradient-to-r from-primary to-accent rounded-full"></div>
+        <h1 className="text-3xl font-bold text-foreground tracking-tight pt-4 font-technical">
+          {missionId ? "MISSION JOBS" : "ALL JOBS"}
+        </h1>
+        <p className="text-muted-foreground mt-2 font-technical tracking-wide">
+          {missionId && selectedMission
+            ? `Jobs for: ${selectedMission.name} • Sol ${new Date().getFullYear() - 2020 + 1}`
+            : `View and manage all optimization jobs • Sol ${new Date().getFullYear() - 2020 + 1}`}
+        </p>
+      </div>
+
+      {/* Action Bar */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           {missionId && (
@@ -285,44 +281,53 @@ export default function JobsPage() {
               variant="ghost"
               size="sm"
               onClick={() => router.push("/missions")}
-              className="gap-2 hover:bg-muted"
+              className="gap-2 hover:bg-muted font-technical"
             >
               <MdArrowBack className="w-4 h-4" />
             </Button>
           )}
-          <div>
-            <h1 className="text-3xl font-bold text-foreground">
-              {missionId ? "Mission Jobs" : "All Jobs"}
-            </h1>
-            <p className="text-muted-foreground mt-1">
-              {missionId && selectedMission
-                ? `Jobs for: ${selectedMission.name}`
-                : "View and manage all optimization jobs"}
-            </p>
+          <div className="flex items-center gap-4 text-sm text-muted-foreground font-technical">
+            <span>
+              <strong className="text-foreground">{filteredJobs.length}</strong> jobs
+            </span>
+            <span>•</span>
+            <span>
+              <strong className="text-foreground">{allJobs.length}</strong> total
+            </span>
           </div>
         </div>
-        <Button
-          onClick={() =>
-            router.push(`/jobs/new${missionId ? `?mission=${missionId}` : ""}`)
-          }
-          className="gap-2 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
-        >
-          Create New Job
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            onClick={() =>
+              router.push(`/jobs/new${missionId ? `?mission=${missionId}` : ""}`)
+            }
+            className="gap-2 font-technical"
+          >
+            <MdPlayArrow className="w-4 h-4" />
+            Create New Job
+          </Button>
+        </div>
       </div>
 
       {/* Jobs List */}
       <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-2xl font-semibold">Jobs</h2>
-          <Badge variant="outline">
-            {filteredJobs.length} of {allJobs.length} jobs
-          </Badge>
-        </div>
-
-        {/* Search and Filters */}
-        <Card>
-          <CardContent className="py-0 px-4">
+        {/* Search and Filters Card */}
+        <Card className="border-border/50 bg-card/50 backdrop-blur-sm">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="font-technical tracking-wide">JOB MANAGEMENT</CardTitle>
+                <CardDescription className="font-technical text-xs tracking-wider uppercase">
+                  Optimization and analysis jobs • Mars operations
+                </CardDescription>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                <span className="text-xs font-technical text-green-400">LIVE</span>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
             <div className="flex flex-col sm:flex-row gap-4">
               <div className="flex-1 relative">
                 <MdSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
@@ -330,12 +335,12 @@ export default function JobsPage() {
                   placeholder="Search jobs by name or type..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10"
+                  className="pl-10 font-technical"
                 />
               </div>
               <div className="flex gap-2">
                 <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="w-40">
+                  <SelectTrigger className="w-40 font-technical">
                     <MdFilterList className="w-4 h-4 mr-2" />
                     <SelectValue />
                   </SelectTrigger>
@@ -364,7 +369,7 @@ export default function JobsPage() {
                 </Select>
 
                 <Select value={typeFilter} onValueChange={setTypeFilter}>
-                  <SelectTrigger className="w-32">
+                  <SelectTrigger className="w-32 font-technical">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -382,9 +387,9 @@ export default function JobsPage() {
 
         <div className="grid gap-4">
           {filteredJobs.length === 0 ? (
-            <Card>
-              <CardContent className="flex items-center justify-center h-32">
-                <p className="text-muted-foreground">
+            <Card className="border-border/50 bg-card/50 backdrop-blur-sm">
+              <CardContent className="flex items-center justify-center py-12">
+                <p className="text-muted-foreground font-technical">
                   {allJobs.length === 0
                     ? missionId
                       ? "No jobs found for this mission"
@@ -395,14 +400,14 @@ export default function JobsPage() {
             </Card>
           ) : (
             paginatedJobs.map((job: Job) => (
-              <Card key={job.id}>
+              <Card key={job.id} className="border-border/50 bg-card/50 backdrop-blur-sm">
                 <CardHeader>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       {getStatusIcon(job.status)}
                       <div>
-                        <CardTitle className="text-lg">{job.name}</CardTitle>
-                        <CardDescription>
+                        <CardTitle className="text-lg font-technical">{job.name}</CardTitle>
+                        <CardDescription className="font-technical">
                           {job.type.charAt(0).toUpperCase() + job.type.slice(1)}{" "}
                           Job • Created{" "}
                           {new Date(job.createdAt).toLocaleDateString()}
@@ -414,7 +419,7 @@ export default function JobsPage() {
                         </CardDescription>
                       </div>
                     </div>
-                    <Badge variant={getStatusVariant(job.status)}>
+                    <Badge variant={getStatusVariant(job.status)} className="font-technical">
                       {getStatusLabel(job.status)}
                     </Badge>
                   </div>
@@ -432,7 +437,7 @@ export default function JobsPage() {
                     )}
 
                     {job.error && (
-                      <div className="text-sm text-red-600 bg-red-50 p-2 rounded">
+                      <div className="text-sm text-red-600 bg-red-50 dark:bg-red-900/20 p-2 rounded font-technical">
                         Error: {job.error}
                       </div>
                     )}
@@ -448,7 +453,7 @@ export default function JobsPage() {
                           size="sm"
                           variant="outline"
                           onClick={() => router.push(`/jobs/${job.id}`)}
-                          className="gap-1"
+                          className="gap-1 font-technical"
                         >
                           Continue Setup
                         </Button>
@@ -464,7 +469,7 @@ export default function JobsPage() {
                             // TODO: Implement run job functionality
                             console.log("Run job:", job.id);
                           }}
-                          className="gap-1"
+                          className="gap-1 font-technical"
                         >
                           <MdPlayArrow className="w-4 h-4" />
                           Run Job
@@ -478,7 +483,7 @@ export default function JobsPage() {
                           size="sm"
                           variant="outline"
                           onClick={() => router.push(`/jobs/results/${job.id}`)}
-                          className="gap-1"
+                          className="gap-1 font-technical"
                         >
                           View Details
                         </Button>
@@ -488,39 +493,39 @@ export default function JobsPage() {
                     {job.result && job.result.success && (
                       <div className="space-y-4">
                         <div className="flex items-center justify-between">
-                          <h4 className="font-medium">Optimization Results</h4>
+                          <h4 className="font-medium font-technical">Optimization Results</h4>
                           <Button
                             size="sm"
                             onClick={() =>
                               router.push(`/jobs/results/${job.id}`)
                             }
-                            className="gap-1"
+                            className="gap-1 font-technical"
                           >
                             View Results
                           </Button>
                         </div>
                         <div className="grid grid-cols-3 gap-4 text-sm">
                           <div className="border border-green-200 bg-green-100 dark:bg-green-900/20 dark:border-green-800 p-3 rounded-lg">
-                            <div className="font-medium text-green-800 dark:text-green-200">
+                            <div className="font-medium text-green-800 dark:text-green-200 font-technical">
                               Score
                             </div>
-                            <div className="text-lg font-bold text-green-900 dark:text-green-100">
+                            <div className="text-lg font-bold text-green-900 dark:text-green-100 font-technical">
                               {job.result.metrics.optimizationScore}/10
                             </div>
                           </div>
                           <div className="border border-blue-200 bg-blue-100 dark:bg-blue-900/20 dark:border-blue-800 p-3 rounded-lg">
-                            <div className="font-medium text-blue-800 dark:text-blue-200">
+                            <div className="font-medium text-blue-800 dark:text-blue-200 font-technical">
                               Duration
                             </div>
-                            <div className="text-lg font-bold text-blue-900 dark:text-blue-100">
+                            <div className="text-lg font-bold text-blue-900 dark:text-blue-100 font-technical">
                               {job.result.metrics.duration}m
                             </div>
                           </div>
                           <div className="border border-purple-200 bg-purple-100 dark:bg-purple-900/20 dark:border-purple-800 p-3 rounded-lg">
-                            <div className="font-medium text-purple-800 dark:text-purple-200">
+                            <div className="font-medium text-purple-800 dark:text-purple-200 font-technical">
                               Items Processed
                             </div>
-                            <div className="text-lg font-bold text-purple-900 dark:text-purple-100">
+                            <div className="text-lg font-bold text-purple-900 dark:text-purple-100 font-technical">
                               {job.result.metrics.itemsProcessed}
                             </div>
                           </div>
@@ -537,7 +542,7 @@ export default function JobsPage() {
         {/* Pagination */}
         {totalPages > 1 && (
           <div className="flex items-center justify-between">
-            <div className="text-sm text-muted-foreground">
+            <div className="text-sm text-muted-foreground font-technical">
               Showing {(currentPage - 1) * itemsPerPage + 1} to{" "}
               {Math.min(currentPage * itemsPerPage, filteredJobs.length)} of{" "}
               {filteredJobs.length} jobs
@@ -548,6 +553,7 @@ export default function JobsPage() {
                 size="sm"
                 onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
                 disabled={currentPage === 1}
+                className="font-technical"
               >
                 Previous
               </Button>
@@ -566,7 +572,7 @@ export default function JobsPage() {
                       }
                       size="sm"
                       onClick={() => setCurrentPage(pageNumber)}
-                      className="w-8 h-8 p-0"
+                      className="w-8 h-8 p-0 font-technical"
                     >
                       {pageNumber}
                     </Button>
@@ -581,6 +587,7 @@ export default function JobsPage() {
                   setCurrentPage((page) => Math.min(totalPages, page + 1))
                 }
                 disabled={currentPage === totalPages}
+                className="font-technical"
               >
                 Next
               </Button>
