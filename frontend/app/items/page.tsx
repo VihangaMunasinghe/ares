@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { MdAdd, MdUpload, MdDownload, MdFileDownload, MdSearch } from "react-icons/md"
 import { ItemsTable } from "./components/ItemsTable"
@@ -225,113 +226,127 @@ Water Filter Cartridge,equipment,unit,1.2,AquaMars Systems,AMS-FLT-205`
   }
 
   return (
-    <div className="space-y-3 p-3">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-foreground">Items Catalog</h1>
-          <p className="text-muted-foreground mt-1">
-            Global item templates for mission planning and waste optimization
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={handleDownloadTemplate} className="gap-2 bg-transparent">
-            <MdFileDownload className="w-5 h-5" />
-            Download Template
-          </Button>
-          {/* <Button variant="outline" onClick={() => setUploadOpen(true)} className="gap-2">
-            <MdUpload className="w-5 h-5" />
-            Upload CSV/JSON
-          </Button> */}
-          <Button variant="outline" onClick={handleExportCSV} className="gap-2 bg-transparent">
-            <MdDownload className="w-5 h-5" />
-            Export Grid
-          </Button>
-          <Button
-            onClick={() => setCreateFormOpen(true)}
-            className="gap-2"
-          >
-            <MdAdd className="w-5 h-5" />
-            Add Item
-          </Button>
-        </div>
+    <div className="space-y-6">
+      {/* Header with NASA-style typography */}
+      <div className="relative">
+        <div className="absolute top-0 left-0 w-20 h-1 bg-gradient-to-r from-primary to-accent rounded-full"></div>
+        <h1 className="text-3xl font-bold text-foreground tracking-tight pt-4 font-technical">ITEMS CATALOG</h1>
+        <p className="text-muted-foreground mt-2 font-technical tracking-wide">
+          Global item templates for mission planning and waste optimization • Sol 1247
+        </p>
       </div>
 
-      {/* Search & Stats */}
-      <div className="flex items-center justify-between gap-4">
+      {/* Action Bar */}
+      <div className="flex items-center justify-between">
         <div className="relative flex-1 max-w-md">
           <MdSearch className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
           <Input
-            placeholder="Search items by name, category, or tags..."
+            placeholder="Search items by name, category, or composition..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-10"
           />
         </div>
-        <div className="flex items-center gap-4 text-sm text-muted-foreground">
-          <span>
-            <strong className="text-foreground">{filteredItems.length}</strong> items
-          </span>
-          <span>•</span>
-          <span>
-            <strong className="text-foreground">{new Set(filteredItems.map((i) => i.category)).size}</strong> categories
-          </span>
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-4 text-sm text-muted-foreground font-technical">
+            <span>
+              <strong className="text-foreground">{filteredItems.length}</strong> items
+            </span>
+            <span>•</span>
+            <span>
+              <strong className="text-foreground">{new Set(filteredItems.map((i) => i.category)).size}</strong> categories
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" onClick={handleDownloadTemplate} className="gap-2 bg-transparent">
+              <MdFileDownload className="w-4 h-4" />
+              Template
+            </Button>
+            <Button variant="outline" onClick={handleExportCSV} className="gap-2 bg-transparent">
+              <MdDownload className="w-4 h-4" />
+              Export
+            </Button>
+            <Button
+              onClick={() => setCreateFormOpen(true)}
+              className="gap-2"
+            >
+              <MdAdd className="w-4 h-4" />
+              Add Item
+            </Button>
+          </div>
         </div>
       </div>
 
-      {/* Tabs */}
+      {/* Enhanced Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="items">Items Catalog</TabsTrigger>
-          <TabsTrigger value="substitutes">Item → Substitute Relationships</TabsTrigger>
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="items" className="font-technical">Items Catalog</TabsTrigger>
+          <TabsTrigger value="substitutes" className="font-technical">Item → Substitute Relationships</TabsTrigger>
         </TabsList>
 
         <TabsContent value="items" className="space-y-4">
-          {/* Search & Stats for Items */}
-          <div className="flex items-center justify-between gap-4">
-            <div className="relative flex-1 max-w-md">
-              <MdSearch className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-              <Input
-                placeholder="Search items by name, category, or tags..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-            <div className="flex items-center gap-4 text-sm text-muted-foreground">
-              <span>
-                <strong className="text-foreground">{filteredItems.length}</strong> items
-              </span>
-              <span>•</span>
-              <span>
-                <strong className="text-foreground">{new Set(filteredItems.map((i) => i.category)).size}</strong> categories
-              </span>
-            </div>
-          </div>
-
-          {/* Items Table */}
+          {/* Items Table Card */}
           {loading ? (
-            <div className="flex items-center justify-center h-64">
-              <div className="text-muted-foreground">Loading items catalog...</div>
-            </div>
+            <Card className="border-border/50 bg-card/50 backdrop-blur-sm">
+              <CardContent className="flex items-center justify-center py-12">
+                <div className="text-center space-y-2">
+                  <div className="animate-pulse">
+                    <div className="h-4 bg-muted rounded w-32 mx-auto"></div>
+                  </div>
+                  <p className="text-muted-foreground font-technical">Loading items catalog...</p>
+                </div>
+              </CardContent>
+            </Card>
           ) : (
-            <ItemsTable
-              items={filteredItems}
-              onView={handleView}
-              onEdit={handleEdit}
-              onDuplicate={handleDuplicate}
-              onDelete={handleDelete}
-            />
+            <Card className="border-border/50 bg-card/50 backdrop-blur-sm">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="font-technical tracking-wide">CATALOG INVENTORY</CardTitle>
+                    <CardDescription className="font-technical text-xs tracking-wider uppercase">Global items database • Mars operations</CardDescription>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                    <span className="text-xs font-technical text-green-400">LIVE</span>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <ItemsTable
+                  items={filteredItems}
+                  onView={handleView}
+                  onEdit={handleEdit}
+                  onDuplicate={handleDuplicate}
+                  onDelete={handleDelete}
+                />
+              </CardContent>
+            </Card>
           )}
         </TabsContent>
 
         <TabsContent value="substitutes" className="space-y-4">
-          <ItemSubstitutesTable
-            relationships={itemSubstitutes}
-            onAdd={handleAddSubstituteRelationship}
-            onDelete={handleDeleteSubstituteRelationship}
-            loading={substitutesLoading}
-          />
+          <Card className="border-border/50 bg-card/50 backdrop-blur-sm">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="font-technical tracking-wide">SUBSTITUTION MATRIX</CardTitle>
+                  <CardDescription className="font-technical text-xs tracking-wider uppercase">Item replacement relationships • Resource optimization</CardDescription>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 bg-accent rounded-full animate-pulse"></div>
+                  <span className="text-xs font-technical text-accent">ACTIVE</span>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <ItemSubstitutesTable
+                relationships={itemSubstitutes}
+                onAdd={handleAddSubstituteRelationship}
+                onDelete={handleDeleteSubstituteRelationship}
+                loading={substitutesLoading}
+              />
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
 

@@ -15,100 +15,142 @@ interface ItemSubstitutesTableProps {
 
 export function ItemSubstitutesTable({ relationships, onDelete, onAdd, loading }: ItemSubstitutesTableProps) {
   return (
-    <div className="space-y-4">
-      {/* Header with Add button */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h3 className="text-lg font-semibold">Item-Substitute Relationships</h3>
-          <p className="text-sm text-muted-foreground">
-            Manage which substitutes can replace which items
+    <div className="space-y-6">
+      {/* Enhanced Header */}
+      <div className="flex justify-between items-start">
+        <div className="space-y-2">
+          <div className="flex items-center gap-3">
+            <div className="w-1 h-6 bg-gradient-to-b from-accent to-primary rounded-full"></div>
+            <h3 className="text-lg font-technical tracking-wide uppercase">Substitution Matrix</h3>
+          </div>
+          <p className="text-sm text-muted-foreground font-technical">
+            Resource optimization • Cross-compatibility mapping • Mission flexibility
           </p>
         </div>
-        <Button onClick={onAdd} size="sm">
+        <Button 
+          onClick={onAdd} 
+          size="sm"
+          className="font-technical tracking-wide bg-accent hover:bg-accent/90"
+        >
           <MdAdd className="w-4 h-4 mr-2" />
           Add Relationship
         </Button>
       </div>
 
-      {/* Table */}
-      <div className="rounded-lg border border-border overflow-hidden">
-        <Table>
-          <TableHeader>
-            <TableRow className="bg-secondary/50">
-              <TableHead className="font-semibold">Item</TableHead>
-              <TableHead className="font-semibold">Item Key</TableHead>
-              <TableHead className="font-semibold">Substitute</TableHead>
-              <TableHead className="font-semibold">Substitute Key</TableHead>
-              <TableHead className="font-semibold text-right">Value/Unit</TableHead>
-              <TableHead className="font-semibold text-right">Lifetime (weeks)</TableHead>
-              <TableHead className="font-semibold">Created</TableHead>
-              <TableHead className="font-semibold text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {loading ? (
-              <TableRow>
-                <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
-                  Loading relationships...
-                </TableCell>
+      {/* Enhanced Table */}
+      {loading ? (
+        <div className="rounded-lg border border-border/50 bg-background/50 p-12">
+          <div className="text-center space-y-3">
+            <div className="animate-pulse">
+              <div className="h-4 bg-muted rounded w-32 mx-auto"></div>
+            </div>
+            <p className="text-muted-foreground font-technical">Loading substitution matrix...</p>
+          </div>
+        </div>
+      ) : relationships.length === 0 ? (
+        <div className="rounded-lg border border-border/50 bg-background/50 p-12">
+          <div className="text-center space-y-4">
+            <div className="w-16 h-16 mx-auto rounded-full bg-secondary/50 flex items-center justify-center">
+              <MdAdd className="w-8 h-8 text-muted-foreground" />
+            </div>
+            <div>
+              <p className="text-lg font-medium text-muted-foreground font-technical">No Relationships Configured</p>
+              <p className="text-sm text-muted-foreground/70 font-technical mt-1">
+                Configure item-substitute relationships to enable resource optimization
+              </p>
+            </div>
+            <Button onClick={onAdd} className="mt-4 font-technical tracking-wide">
+              Create First Relationship
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <div className="rounded-lg border border-border/50 overflow-hidden bg-background/50">
+          <Table>
+            <TableHeader>
+              <TableRow className="bg-secondary/50 border-b border-border/50">
+                <TableHead className="font-technical font-semibold tracking-wider text-xs uppercase">Primary Item</TableHead>
+                <TableHead className="font-technical font-semibold tracking-wider text-xs uppercase">Item Key</TableHead>
+                <TableHead className="font-technical font-semibold tracking-wider text-xs uppercase">Substitute Item</TableHead>
+                <TableHead className="font-technical font-semibold tracking-wider text-xs uppercase">Substitute Key</TableHead>
+                <TableHead className="font-technical font-semibold tracking-wider text-xs uppercase text-right">Value Ratio</TableHead>
+                <TableHead className="font-technical font-semibold tracking-wider text-xs uppercase text-right">Lifetime (w)</TableHead>
+                <TableHead className="font-technical font-semibold tracking-wider text-xs uppercase">Established</TableHead>
+                <TableHead className="font-technical font-semibold tracking-wider text-xs uppercase text-right">Actions</TableHead>
               </TableRow>
-            ) : relationships.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
-                  No item-substitute relationships found. Click "Add Relationship" to create one.
-                </TableCell>
-              </TableRow>
-            ) : (
-              relationships.map((relationship) => (
+            </TableHeader>
+            <TableBody>
+              {relationships.map((relationship) => (
                 <TableRow
                   key={relationship.relationship_id}
-                  className="hover:bg-secondary/50 transition-colors"
+                  className="hover:bg-secondary/30 transition-all duration-200 border-b border-border/20"
                 >
                   <TableCell className="font-medium">
-                    {relationship.item_name}
+                    <div className="space-y-1">
+                      <div className="font-technical tracking-wide">{relationship.item_name}</div>
+                      <Badge variant="outline" className="text-xs font-technical border-blue-500/50 text-blue-400 bg-blue-500/10">
+                        Primary
+                      </Badge>
+                    </div>
                   </TableCell>
                   <TableCell className="text-muted-foreground font-mono text-sm">
-                    {relationship.item_key}
+                    <div className="px-2 py-1 bg-secondary/50 rounded text-xs">
+                      {relationship.item_key}
+                    </div>
                   </TableCell>
                   <TableCell className="font-medium">
-                    {relationship.substitute_name}
+                    <div className="space-y-1">
+                      <div className="font-technical tracking-wide">{relationship.substitute_name}</div>
+                      <Badge variant="outline" className="text-xs font-technical border-green-500/50 text-green-400 bg-green-500/10">
+                        Substitute
+                      </Badge>
+                    </div>
                   </TableCell>
                   <TableCell className="text-muted-foreground font-mono text-sm">
-                    {relationship.substitute_key}
+                    <div className="px-2 py-1 bg-secondary/50 rounded text-xs">
+                      {relationship.substitute_key}
+                    </div>
                   </TableCell>
-                  <TableCell className="text-right font-mono">
-                    {relationship.substitute_value_per_unit.toFixed(2)}
+                  <TableCell className="text-right">
+                    <div className="flex flex-col items-end space-y-1">
+                      <span className="px-2 py-1 bg-accent/20 text-accent rounded font-mono text-sm">
+                        {relationship.substitute_value_per_unit.toFixed(2)}
+                      </span>
+                      <span className="text-xs text-muted-foreground font-technical">per unit</span>
+                    </div>
                   </TableCell>
-                  <TableCell className="text-right font-mono">
-                    {relationship.substitute_lifetime_weeks}
+                  <TableCell className="text-right">
+                    <span className="px-2 py-1 bg-secondary/50 rounded font-mono text-sm">
+                      {relationship.substitute_lifetime_weeks}
+                    </span>
                   </TableCell>
-                  <TableCell className="text-muted-foreground text-sm">
-                    {new Date(relationship.relationship_created_at).toLocaleDateString()}
+                  <TableCell className="text-muted-foreground">
+                    <div className="space-y-1">
+                      <div className="text-sm font-technical">
+                        {new Date(relationship.relationship_created_at).toLocaleDateString()}
+                      </div>
+                      <div className="text-xs text-muted-foreground/70 font-technical">
+                        Sol {Math.floor(Math.random() * 1000) + 1200}
+                      </div>
+                    </div>
                   </TableCell>
                   <TableCell>
-                    <div className="flex items-center justify-end gap-1">
+                    <div className="flex items-center justify-end">
                       <Button
                         size="sm"
                         variant="ghost"
                         onClick={() => onDelete(relationship.relationship_id)}
                         title="Delete relationship"
-                        className="text-red-400 hover:text-red-300"
+                        className="hover:bg-red-500/20 hover:text-red-400"
                       >
                         <MdDelete className="w-4 h-4" />
                       </Button>
                     </div>
                   </TableCell>
                 </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </div>
-
-      {/* Stats */}
-      {!loading && relationships.length > 0 && (
-        <div className="text-sm text-muted-foreground">
-          {relationships.length} relationship{relationships.length !== 1 ? 's' : ''}
+              ))}
+            </TableBody>
+          </Table>
         </div>
       )}
     </div>
