@@ -4,14 +4,14 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { MdVisibility, MdEdit, MdContentCopy, MdDelete, MdWarning } from "react-icons/md"
-import type { ItemTemplate } from "@/types/items"
+import type { ItemsCatalog } from "@/lib/api/global-entities"
 import { cn } from "@/lib/utils"
 
 interface ItemsTableProps {
-  items: ItemTemplate[]
-  onView: (item: ItemTemplate) => void
-  onEdit: (item: ItemTemplate) => void
-  onDuplicate: (item: ItemTemplate) => void
+  items: ItemsCatalog[]
+  onView: (item: ItemsCatalog) => void
+  onEdit: (item: ItemsCatalog) => void
+  onDuplicate: (item: ItemsCatalog) => void
   onDelete: (itemId: string) => void
 }
 
@@ -23,13 +23,39 @@ export function ItemsTable({ items, onView, onEdit, onDuplicate, onDelete }: Ite
       medical: "bg-red-500/20 text-red-400 border-red-500/50",
       consumable: "bg-green-500/20 text-green-400 border-green-500/50",
       structural: "bg-orange-500/20 text-orange-400 border-orange-500/50",
+      polymer: "bg-cyan-500/20 text-cyan-400 border-cyan-500/50",
+      fabric: "bg-pink-500/20 text-pink-400 border-pink-500/50",
     }
     return colors[category] || "bg-secondary text-foreground"
   }
 
-  const hasValidationIssues = (item: ItemTemplate) => {
-    const compositionSum = item.composition.reduce((sum, comp) => sum + comp.percent_by_mass, 0)
-    return Math.abs(compositionSum - 100) > 0.01 || item.waste_mappings.length === 0
+  const hasValidationIssues = (item: ItemsCatalog) => {
+    // For now, just check if waste mappings exist
+    return item.waste_mappings === 0
+  }
+
+  const renderSafetyFlags = (safetyData: Record<string, any>) => {
+    const flags: React.ReactElement[] = []
+    
+    // Iterate through all materials in the safety object
+    Object.values(safetyData).forEach((materialSafety: any, index) => {
+      if (materialSafety?.flammable) {
+        flags.push(
+          <Badge key={`fire-${index}`} variant="outline" className="text-xs border-orange-500/50 text-orange-400">
+            🔥
+          </Badge>
+        )
+      }
+      if (materialSafety?.toxic) {
+        flags.push(
+          <Badge key={`toxic-${index}`} variant="outline" className="text-xs border-red-500/50 text-red-400">
+            ☠️
+          </Badge>
+        )
+      }
+    })
+    
+    return flags
   }
 
   return (
@@ -51,7 +77,7 @@ export function ItemsTable({ items, onView, onEdit, onDuplicate, onDelete }: Ite
           {items.map((item) => (
             <TableRow
               key={item.id}
-              className={cn("hover:bg-secondary/50 transition-colors", item.deprecated && "opacity-50 bg-secondary/30")}
+              className="hover:bg-secondary/50 transition-colors"
             >
               <TableCell className="font-medium">
                 <div className="flex items-center gap-2">
@@ -59,56 +85,32 @@ export function ItemsTable({ items, onView, onEdit, onDuplicate, onDelete }: Ite
                     <MdWarning className="w-4 h-4 text-yellow-500" title="Validation issues" />
                   )}
                   <span>{item.name}</span>
-                  {item.deprecated && (
-                    <Badge variant="outline" className="text-xs">
-                      Deprecated
-                    </Badge>
-                  )}
                 </div>
               </TableCell>
               <TableCell>
-                <Badge variant="outline" className={cn("border", getCategoryColor(item.category))}>
-                  {item.category}
-                </Badge>
+                {item.category.split(', ').map((cat, index) => (
+                  <Badge key={index} variant="outline" className={cn("border mr-1", getCategoryColor(cat.trim()))}>
+                    {cat.trim()}
+                  </Badge>
+                ))}
               </TableCell>
               <TableCell className="text-muted-foreground">{item.unit}</TableCell>
-              <TableCell className="text-right font-mono">{item.mass_per_unit_kg.toFixed(3)}</TableCell>
+              <TableCell className="text-right font-mono">
+                {item.mass_per_unit ? item.mass_per_unit.toFixed(3) : 'N/A'}
+              </TableCell>
               <TableCell>
-                <div className="flex flex-wrap gap-1">
-                  {item.composition.slice(0, 2).map((comp) => (
-                    <Badge key={comp.material_id} variant="secondary" className="text-xs">
-                      {comp.material_name}: {comp.percent_by_mass}%
-                    </Badge>
-                  ))}
-                  {item.composition.length > 2 && (
-                    <Badge variant="secondary" className="text-xs">
-                      +{item.composition.length - 2} more
-                    </Badge>
-                  )}
+                <div className="text-xs text-muted-foreground">
+                  {item.composition || 'No composition data'}
                 </div>
               </TableCell>
               <TableCell className="text-center">
                 <Badge variant="outline" className="font-mono">
-                  {item.waste_mappings.length}
+                  {item.waste_mappings}
                 </Badge>
               </TableCell>
               <TableCell>
                 <div className="flex gap-1">
-                  {item.safety_flags?.flammability && item.safety_flags.flammability !== "low" && (
-                    <Badge variant="outline" className="text-xs border-orange-500/50 text-orange-400">
-                      🔥
-                    </Badge>
-                  )}
-                  {item.safety_flags?.toxicity && item.safety_flags.toxicity !== "none" && (
-                    <Badge variant="outline" className="text-xs border-red-500/50 text-red-400">
-                      ☠️
-                    </Badge>
-                  )}
-                  {item.safety_flags?.bio && (
-                    <Badge variant="outline" className="text-xs border-purple-500/50 text-purple-400">
-                      🦠
-                    </Badge>
-                  )}
+                  {renderSafetyFlags(item.safety)}
                 </div>
               </TableCell>
               <TableCell>

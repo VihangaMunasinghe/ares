@@ -168,6 +168,27 @@ async def create_item_global(payload: ItemGlobalCreate, db: AsyncSession = Depen
     await db.commit()
     return dict(rs.mappings().first())
 
+@router.patch("/items/{item_id}", response_model=ItemGlobalOut)
+async def update_item_global(item_id: str, payload: ItemGlobalCreate, db: AsyncSession = Depends(get_db)):
+    rs = await db.execute(text("""
+        update items_global
+        set key = :key, name = :name, units_label = :units, mass_per_unit = :mass, lifetime_weeks = :lifetime
+        where id = :id
+        returning *;
+    """), {
+        "id": item_id,
+        "key": payload.key,
+        "name": payload.name,
+        "units": payload.units_label,
+        "mass": payload.mass_per_unit,
+        "lifetime": payload.lifetime_weeks
+    })
+    updated = rs.mappings().first()
+    await db.commit()
+    if not updated:
+        raise HTTPException(status_code=404, detail="Item not found")
+    return dict(updated)
+
 @router.delete("/items/{item_id}")
 async def delete_item_global(item_id: str, db: AsyncSession = Depends(get_db)):
     rs = await db.execute(text("delete from items_global where id = :id returning id"), {"id": item_id})

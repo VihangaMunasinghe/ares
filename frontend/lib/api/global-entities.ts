@@ -310,6 +310,33 @@ export interface SubstituteGlobal {
   created_at: string;
 }
 
+// Items catalog interface (joined data from backend)
+export interface ItemsCatalog {
+  id: string;
+  name: string;
+  category: string;
+  unit: string;
+  mass_per_unit: number | null;
+  composition: string;
+  waste_mappings: number;
+  safety: Record<string, any>;
+  created_at: string;
+}
+
+export interface ItemGlobalCreate {
+  key: string;
+  name: string;
+  units_label?: string;
+  mass_per_unit?: number;
+  lifetime_weeks?: number;
+}
+
+export interface ItemWasteCreate {
+  item_id: string;
+  material_id: string;
+  waste_per_unit: number;
+}
+
 // API functions for global entities
 export const globalEntitiesApi = {
   // Materials
@@ -335,5 +362,45 @@ export const globalEntitiesApi = {
   // Substitutes
   async getSubstitutes(): Promise<SubstituteGlobal[]> {
     return apiRequest<SubstituteGlobal[]>("/global/substitutes");
+  },
+
+  // Items Catalog (joined data)
+  async getItemsCatalog(): Promise<ItemsCatalog[]> {
+    return apiRequest<ItemsCatalog[]>("/global/items-catalog");
+  },
+
+  // Items CRUD
+  async createItem(data: ItemGlobalCreate): Promise<ItemGlobal> {
+    return apiRequest<ItemGlobal>("/global/items", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  },
+
+  async deleteItem(itemId: string): Promise<{ success: boolean; message: string }> {
+    return apiRequest<{ success: boolean; message: string }>(`/global/items/${itemId}`, {
+      method: "DELETE",
+    });
+  },
+
+  async updateItem(itemId: string, data: ItemGlobalCreate): Promise<ItemGlobal> {
+    return apiRequest<ItemGlobal>(`/global/items/${itemId}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    });
+  },
+
+  // Item waste relationships
+  async createItemWaste(data: ItemWasteCreate): Promise<any> {
+    return apiRequest<any>("/global/item-waste", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  },
+
+  async deleteItemWaste(itemWasteId: string): Promise<{ success: boolean; message: string }> {
+    return apiRequest<{ success: boolean; message: string }>(`/global/item-waste/${itemWasteId}`, {
+      method: "DELETE",
+    });
   },
 };

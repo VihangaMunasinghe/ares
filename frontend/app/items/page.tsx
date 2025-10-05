@@ -1,102 +1,122 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { MdAdd, MdUpload, MdDownload, MdFileDownload, MdSearch } from "react-icons/md"
 import { ItemsTable } from "./components/ItemsTable"
-import { ItemViewDrawer } from "./components/ItemViewDrawer"
-import { ItemForm } from "./components/ItemForm"
-import { UploadItems } from "./components/UploadItems"
-import { mockItems } from "@/lib/mock-data/items"
-import type { ItemTemplate } from "@/types/items"
+import { ItemViewDrawer } from "./components/ItemViewDrawerSimple"
+import { ItemSimpleForm } from "./components/ItemSimpleForm"
+// import { ItemForm } from "./components/ItemForm"
+// import { UploadItems } from "./components/UploadItems"
+import { globalEntitiesApi, type ItemsCatalog } from "@/lib/api/global-entities"
 import { useToast } from "@/hooks/use-toast"
 
 export default function ItemsPage() {
-  const [items, setItems] = useState<ItemTemplate[]>(mockItems)
-  const [selectedItem, setSelectedItem] = useState<ItemTemplate | null>(null)
+  const [items, setItems] = useState<ItemsCatalog[]>([])
+  const [loading, setLoading] = useState(true)
+  const [selectedItem, setSelectedItem] = useState<ItemsCatalog | null>(null)
   const [viewDrawerOpen, setViewDrawerOpen] = useState(false)
-  const [formOpen, setFormOpen] = useState(false)
-  const [uploadOpen, setUploadOpen] = useState(false)
-  const [editingItem, setEditingItem] = useState<ItemTemplate | null>(null)
+  const [createFormOpen, setCreateFormOpen] = useState(false)
+  const [editFormOpen, setEditFormOpen] = useState(false)
+  // const [uploadOpen, setUploadOpen] = useState(false)
+  const [editingItem, setEditingItem] = useState<ItemsCatalog | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
   const { toast } = useToast()
+
+  // Load items from API
+  useEffect(() => {
+    const loadItems = async () => {
+      try {
+        setLoading(true)
+        const itemsData = await globalEntitiesApi.getItemsCatalog()
+        setItems(itemsData)
+      } catch (error) {
+        console.error("Error loading items:", error)
+        toast({
+          title: "Error",
+          description: "Failed to load items catalog. Please try again.",
+          variant: "destructive",
+        })
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    loadItems()
+  }, [])
 
   const filteredItems = items.filter(
     (item) =>
       item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.tags?.some((tag) => tag.toLowerCase().includes(searchQuery.toLowerCase())),
+      item.category.toLowerCase().includes(searchQuery.toLowerCase()),
   )
 
-  const handleView = (item: ItemTemplate) => {
+  const handleView = (item: ItemsCatalog) => {
     setSelectedItem(item)
     setViewDrawerOpen(true)
   }
 
-  const handleEdit = (item: ItemTemplate) => {
+  const handleEdit = (item: ItemsCatalog) => {
     setEditingItem(item)
-    setFormOpen(true)
+    setEditFormOpen(true)
     setViewDrawerOpen(false)
   }
 
-  const handleDuplicate = (item: ItemTemplate) => {
-    const duplicated = {
-      ...item,
-      id: `item-${Date.now()}`,
-      name: `${item.name} (Copy)`,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    }
-    setItems([...items, duplicated])
-    toast({
-      title: "Item duplicated",
-      description: `${item.name} has been duplicated successfully.`,
-    })
-  }
-
-  const handleDelete = (itemId: string) => {
-    setItems(items.filter((item) => item.id !== itemId))
-    toast({
-      title: "Item deleted",
-      description: "The item has been removed from the catalog.",
-    })
-  }
-
-  const handleSave = (itemData: Partial<ItemTemplate>) => {
-    if (editingItem) {
-      // Update existing
-      setItems(
-        items.map((item) =>
-          item.id === editingItem.id ? { ...item, ...itemData, updated_at: new Date().toISOString() } : item,
-        ),
-      )
+  const handleDuplicate = async (item: ItemsCatalog) => {
+    try {
+      const duplicatedItem = {
+        key: `${item.id}-copy-${Date.now()}`,
+        name: `${item.name} (Copy)`,
+        units_label: item.unit,
+        mass_per_unit: item.mass_per_unit || 1.0,
+        lifetime_weeks: 1
+      }
+      await globalEntitiesApi.createItem(duplicatedItem)
+      // Reload items to show the new one
+      const itemsData = await globalEntitiesApi.getItemsCatalog()
+      setItems(itemsData)
       toast({
-        title: "Item updated",
-        description: `${itemData.name} has been updated successfully.`,
+        title: "Item duplicated",
+        description: "The item has been duplicated successfully.",
       })
-    } else {
-      // Create new
-      const newItem: ItemTemplate = {
-        id: `item-${Date.now()}`,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        ...itemData,
-      } as ItemTemplate
-      setItems([...items, newItem])
+    } catch (error) {
+      console.error("Error duplicating item:", error)
       toast({
-        title: "Item created",
-        description: `${itemData.name} has been added to the catalog.`,
+        title: "Error",
+        description: "Failed to duplicate item. Please try again.",
+        variant: "destructive",
       })
     }
-    setEditingItem(null)
   }
 
-  const handleUpload = (uploadedItems: any[]) => {
-    toast({
-      title: "Items imported",
-      description: `${uploadedItems.length} items have been imported successfully.`,
-    })
+  const handleDelete = async (itemId: string) => {
+    try {
+      await globalEntitiesApi.deleteItem(itemId)
+      // Remove from local state
+      setItems(items.filter((item) => item.id !== itemId))
+      toast({
+        title: "Item deleted",
+        description: "The item has been removed from the catalog.",
+      })
+    } catch (error) {
+      console.error("Error deleting item:", error)
+      toast({
+        title: "Error",
+        description: "Failed to delete item. Please try again.",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const handleFormSuccess = async () => {
+    // Reload items after create/update
+    try {
+      const itemsData = await globalEntitiesApi.getItemsCatalog()
+      setItems(itemsData)
+    } catch (error) {
+      console.error("Error reloading items:", error)
+    }
   }
 
   const handleExportCSV = () => {
@@ -107,9 +127,9 @@ export default function ItemsPage() {
           item.name,
           item.category,
           item.unit,
-          item.mass_per_unit_kg,
-          item.composition.length,
-          item.waste_mappings.length,
+          item.mass_per_unit || 0,
+          `"${item.composition}"`, // Wrap composition in quotes since it may contain commas
+          item.waste_mappings,
         ].join(","),
       ),
     ].join("\n")
@@ -157,19 +177,16 @@ Water Filter Cartridge,equipment,unit,1.2,AquaMars Systems,AMS-FLT-205`
             <MdFileDownload className="w-5 h-5" />
             Download Template
           </Button>
-          <Button variant="outline" onClick={() => setUploadOpen(true)} className="gap-2">
+          {/* <Button variant="outline" onClick={() => setUploadOpen(true)} className="gap-2">
             <MdUpload className="w-5 h-5" />
             Upload CSV/JSON
-          </Button>
+          </Button> */}
           <Button variant="outline" onClick={handleExportCSV} className="gap-2 bg-transparent">
             <MdDownload className="w-5 h-5" />
             Export Grid
           </Button>
           <Button
-            onClick={() => {
-              setEditingItem(null)
-              setFormOpen(true)
-            }}
+            onClick={() => setCreateFormOpen(true)}
             className="gap-2"
           >
             <MdAdd className="w-5 h-5" />
@@ -201,26 +218,44 @@ Water Filter Cartridge,equipment,unit,1.2,AquaMars Systems,AMS-FLT-205`
       </div>
 
       {/* Table */}
-      <ItemsTable
-        items={filteredItems}
-        onView={handleView}
-        onEdit={handleEdit}
-        onDuplicate={handleDuplicate}
-        onDelete={handleDelete}
-      />
+      {loading ? (
+        <div className="flex items-center justify-center h-64">
+          <div className="text-muted-foreground">Loading items catalog...</div>
+        </div>
+      ) : (
+        <ItemsTable
+          items={filteredItems}
+          onView={handleView}
+          onEdit={handleEdit}
+          onDuplicate={handleDuplicate}
+          onDelete={handleDelete}
+        />
+      )}
 
       {/* Modals & Drawers */}
       <ItemViewDrawer
         item={selectedItem}
         open={viewDrawerOpen}
-        onClose={() => setViewDrawerOpen(false)}
-        onEdit={handleEdit}
-        onDuplicate={handleDuplicate}
+        onOpenChange={setViewDrawerOpen}
       />
 
-      <ItemForm item={editingItem} open={formOpen} onClose={() => setFormOpen(false)} onSave={handleSave} />
+      <ItemSimpleForm
+        open={createFormOpen}
+        onOpenChange={setCreateFormOpen}
+        onSuccess={handleFormSuccess}
+      />
 
+      <ItemSimpleForm
+        open={editFormOpen}
+        onOpenChange={setEditFormOpen}
+        item={editingItem}
+        onSuccess={handleFormSuccess}
+      />
+
+      {/* Temporarily disabled complex forms
+      <ItemForm item={editingItem} open={formOpen} onClose={() => setFormOpen(false)} onSave={handleSave} />
       <UploadItems open={uploadOpen} onClose={() => setUploadOpen(false)} onUpload={handleUpload} />
+      */}
     </div>
   )
 }
