@@ -3,8 +3,12 @@
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
-import { MdClose, MdSave, MdWarning } from "react-icons/md"
+import { Badge } from "@/components/ui/badge"
+import { Separator } from "@/components/ui/separator"
+import { MdClose, MdSave, MdWarning, MdInventory } from "react-icons/md"
+import { recipesApi } from "@/lib/api/global-entities"
 import type { Recipe } from "@/types/recipe"
+import type { RecipeOutputDetailed } from "@/lib/api/global-entities"
 
 interface RecipeDetailDrawerProps {
   recipe: Recipe | null
@@ -15,12 +19,34 @@ interface RecipeDetailDrawerProps {
 
 export function RecipeDetailDrawer({ recipe, isOpen, onClose, onSave }: RecipeDetailDrawerProps) {
   const [editedRecipe, setEditedRecipe] = useState<Recipe | null>(null)
+  const [detailedOutputs, setDetailedOutputs] = useState<RecipeOutputDetailed[]>([])
+  const [isLoadingOutputs, setIsLoadingOutputs] = useState(false)
 
   useEffect(() => {
     if (recipe) {
       setEditedRecipe({ ...recipe })
+      // Try to fetch detailed outputs if this recipe has an API-compatible ID
+      loadDetailedOutputs(recipe.id)
     }
   }, [recipe])
+
+  const loadDetailedOutputs = async (recipeId: string) => {
+    if (!recipeId || recipeId.startsWith('rec-')) {
+      // This is a mock recipe ID, skip API call
+      return
+    }
+    
+    setIsLoadingOutputs(true)
+    try {
+      const outputs = await recipesApi.getOutputsDetailed(recipeId)
+      setDetailedOutputs(outputs)
+    } catch (error) {
+      console.log("Could not load detailed outputs:", error)
+      setDetailedOutputs([])
+    } finally {
+      setIsLoadingOutputs(false)
+    }
+  }
 
   if (!isOpen || !editedRecipe) return null
 
@@ -226,6 +252,54 @@ export function RecipeDetailDrawer({ recipe, isOpen, onClose, onSave }: RecipeDe
               ))}
             </div>
           </div>
+
+          {/* Detailed Outputs from API */}
+          {detailedOutputs.length > 0 && (
+            <div className="space-y-3">
+              <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
+                <MdInventory className="w-5 h-5" />
+                Recipe Outputs ({detailedOutputs.length})
+              </h3>
+              {isLoadingOutputs ? (
+                <p className="text-muted-foreground text-sm">Loading detailed outputs...</p>
+              ) : (
+                <div className="space-y-3">
+                  {detailedOutputs.map((output) => (
+                    <div key={output.recipe_output_id} className="p-4 border border-border rounded-lg bg-secondary/30">
+                      <div className="flex items-start justify-between mb-2">
+                        <div>
+                          <h4 className="font-medium text-foreground">{output.output_name}</h4>
+                          <p className="text-sm text-muted-foreground">Key: {output.output_key}</p>
+                        </div>
+                        <Badge variant="secondary" className="text-lg font-bold">
+                          {(output.yield_ratio * 100).toFixed(1)}%
+                        </Badge>
+                      </div>
+                      
+                      <Separator className="my-2" />
+                      
+                      <div className="grid grid-cols-3 gap-4 text-sm">
+                        <div>
+                          <span className="text-muted-foreground">Units:</span>
+                          <p className="font-medium text-foreground">{output.units_label}</p>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Value:</span>
+                          <p className="font-medium text-foreground">${output.value_per_kg}/kg</p>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Max Capacity:</span>
+                          <p className="font-medium text-foreground">
+                            {output.max_output_capacity_kg ? `${output.max_output_capacity_kg}kg` : "N/A"}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Actions */}
           <div className="flex items-center gap-3 pt-4 border-t border-border">

@@ -5,10 +5,11 @@ import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { MdUpload, MdDownload, MdFileDownload, MdSettings } from "react-icons/md"
 import { RecipesTable } from "./components/RecipesTable"
-import { RecipeDetailDrawer } from "./components/RecipeDetailDrawer"
+import { RecipeDetailsPopup } from "./components/RecipeDetailsPopup"
 import { UploadRecipes } from "./components/UploadRecipes"
 import { MaterialDialog } from "./components/MaterialDialog"
 import { MethodDialog } from "./components/MethodDialog"
+import { CreateRecipeDialog } from "./components/CreateRecipeDialog"
 import { MaterialsMethodsManager } from "./components/MaterialsMethodsManager"
 import { materialsApi, methodsApi, recipesApi } from "@/lib/api/global-entities"
 import type { Recipe, RecipeGridData } from "@/types/recipe"
@@ -131,8 +132,6 @@ const mockData: RecipeGridData = {
 
 export default function RecipesPage() {
   const [gridData, setGridData] = useState<RecipeGridData>(mockData)
-  const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null)
-  const [isDrawerOpen, setIsDrawerOpen] = useState(false)
   const [isUploadOpen, setIsUploadOpen] = useState(false)
   
   // API state
@@ -145,59 +144,148 @@ export default function RecipesPage() {
   const [isMethodDialogOpen, setIsMethodDialogOpen] = useState(false)
   const [editingMaterial, setEditingMaterial] = useState<ApiMaterial | null>(null)
   const [editingMethod, setEditingMethod] = useState<ApiMethod | null>(null)
+  
+  // Recipe details drawer state
+  const [isRecipeDetailsOpen, setIsRecipeDetailsOpen] = useState(false)
+  const [selectedMaterialId, setSelectedMaterialId] = useState<string>("")
+  const [selectedMethodId, setSelectedMethodId] = useState<string>("")
+  
+  // Create recipe dialog state
+  const [isCreateRecipeOpen, setIsCreateRecipeOpen] = useState(false)
+  const [createRecipeMaterialId, setCreateRecipeMaterialId] = useState<string>("")
+  const [createRecipeMethodId, setCreateRecipeMethodId] = useState<string>("")
+
+  const reloadGridData = async () => {
+    setIsLoadingData(true)
+    try {
+      const [materials, methods] = await Promise.all([
+        materialsApi.list(),
+        methodsApi.list(),
+      ])
+      setApiMaterials(materials)
+      setApiMethods(methods)
+      
+      // Convert API data to grid format and fetch recipes
+      const convertedMaterials = materials.map(m => ({
+        id: m.id,
+        name: m.name,
+        category: m.category,
+      }))
+      
+      const convertedMethods = methods.map(m => ({
+        id: m.id,
+        name: m.name,
+        description: m.description,
+        volumeConstraint: m.min_lot_size,
+        capacityPerDay: 10, // Default value since API doesn't have this field
+      }))
+
+      // Fetch recipes for each material-method combination
+      const recipePromises: Promise<any>[] = []
+      const recipeMap: Record<string, any> = {}
+
+      for (const material of materials) {
+        for (const method of methods) {
+          const promise = recipesApi.getByMaterialMethod({
+            material_id: material.id,
+            method_id: method.id,
+          }).then(async (recipe) => {
+            // Get outputs for this recipe
+            const outputs = await recipesApi.getOutputsDetailed(recipe.id)
+            
+            recipeMap[`${material.id}-${method.id}`] = {
+              id: recipe.id,
+              materialId: material.id,
+              methodId: method.id,
+              apiRecipe: recipe, // Store the full API recipe
+              outputs: outputs, // Store the detailed outputs
+              scores: {
+                feasibilityScore: 0, // Not used anymore
+                yieldPercent: 0, // Not used anymore
+                crewTimeHours: recipe.crew_cost_per_kg,
+                energyKwh: recipe.energy_cost_kwh_per_kg,
+              },
+              inputs: [{ material: material.name, minQuantity: 1 }],
+              constraints: {
+                volumeConstraint: method.min_lot_size,
+                capacityPerDay: 10,
+              },
+              safetyFlags: {
+                flammable: material.safety_flags?.flammable || false,
+                biohazard: material.safety_flags?.biohazard || false,
+                contaminationRisk: material.safety_flags?.contaminationRisk || false,
+              },
+            }
+          }).catch((error) => {
+            // Recipe doesn't exist for this combination
+            console.log(`No recipe found for ${material.name} + ${method.name}`)
+            return null
+          })
+          
+          recipePromises.push(promise)
+        }
+      }
+
+      // Wait for all recipe fetches to complete
+      await Promise.allSettled(recipePromises)
+
+      const recipes = Object.values(recipeMap)
+      
+      const convertedGridData: RecipeGridData = {
+        materials: convertedMaterials,
+        methods: convertedMethods,
+        recipes: recipes,
+      }
+      
+      setGridData(convertedGridData)
+    } catch (error) {
+      console.error("Error loading data:", error)
+    } finally {
+      setIsLoadingData(false)
+    }
+  }
 
   // Load data from API on mount
   useEffect(() => {
-    const loadData = async () => {
-      setIsLoadingData(true)
-      try {
-        const [materials, methods] = await Promise.all([
-          materialsApi.list(),
-          methodsApi.list(),
-        ])
-        setApiMaterials(materials)
-        setApiMethods(methods)
-        
-        // Convert API data to grid format for compatibility
-        const convertedGridData: RecipeGridData = {
-          materials: materials.map(m => ({
-            id: m.id,
-            name: m.name,
-            category: m.category,
-          })),
-          methods: methods.map(m => ({
-            id: m.id,
-            name: m.name,
-            description: m.description,
-            volumeConstraint: m.min_lot_size,
-            capacityPerDay: 10, // Default value since API doesn't have this field
-          })),
-          recipes: mockData.recipes, // Keep mock recipes for now
-        }
-        setGridData(convertedGridData)
-      } catch (error) {
-        console.error("Error loading data:", error)
-        // Fallback to mock data if API fails
-        setGridData(mockData)
-      } finally {
-        setIsLoadingData(false)
-      }
-    }
-    
-    loadData()
+    reloadGridData()
   }, [])
 
   const handleCellClick = (recipe: Recipe) => {
-    setSelectedRecipe(recipe)
-    setIsDrawerOpen(true)
+    // Open the new RecipeDetailsDrawer with delete functionality
+    setSelectedMaterialId(recipe.materialId)
+    setSelectedMethodId(recipe.methodId)
+    setIsRecipeDetailsOpen(true)
+
   }
 
-  const handleSaveRecipe = (updatedRecipe: Recipe) => {
-    setGridData((prev) => ({
-      ...prev,
-      recipes: prev.recipes.map((r) => (r.id === updatedRecipe.id ? updatedRecipe : r)),
-    }))
-    setIsDrawerOpen(false)
+  const handleCreateRecipe = (materialId: string, methodId: string) => {
+    setCreateRecipeMaterialId(materialId)
+    setCreateRecipeMethodId(methodId)
+    setIsCreateRecipeOpen(true)
+  }
+
+  const handleRecipeCreated = async (recipe: any) => {
+    // Reload the grid data to show the new recipe
+    await reloadGridData()
+  }
+
+  const handleRecipeDeleted = async () => {
+    // Reload the grid data to remove the deleted recipe
+    await reloadGridData()
+  }
+
+  const handleDeleteRecipe = async (recipe: Recipe) => {
+    if (!recipe.apiRecipe?.id) return
+    
+    if (confirm(`Are you sure you want to delete this recipe for ${recipe.materialId} + ${recipe.methodId}?`)) {
+      try {
+        await recipesApi.delete(recipe.apiRecipe.id)
+        await reloadGridData() // Refresh the grid
+      } catch (error) {
+        console.error("Error deleting recipe:", error)
+        alert("Failed to delete recipe. Please try again.")
+      }
+    }
   }
 
   // Material handlers
@@ -376,7 +464,13 @@ export default function RecipesPage() {
               <p className="text-muted-foreground">Loading data...</p>
             </div>
           ) : (
-            <RecipesTable gridData={gridData} onCellClick={handleCellClick} onDataChange={setGridData} />
+            <RecipesTable 
+              gridData={gridData} 
+              onCellClick={handleCellClick} 
+              onDataChange={setGridData}
+              onCreateRecipe={handleCreateRecipe}
+              onDeleteRecipe={handleDeleteRecipe}
+            />
           )}
         </TabsContent>
         
@@ -392,12 +486,15 @@ export default function RecipesPage() {
         </TabsContent>
       </Tabs>
 
-      {/* Recipe Detail Drawer */}
-      <RecipeDetailDrawer
-        recipe={selectedRecipe}
-        isOpen={isDrawerOpen}
-        onClose={() => setIsDrawerOpen(false)}
-        onSave={handleSaveRecipe}
+      {/* Recipe Details Popup */}
+      <RecipeDetailsPopup
+        isOpen={isRecipeDetailsOpen}
+        onClose={() => setIsRecipeDetailsOpen(false)}
+        onRecipeDeleted={handleRecipeDeleted}
+        materialId={selectedMaterialId}
+        methodId={selectedMethodId}
+        materials={apiMaterials}
+        methods={apiMethods}
       />
 
       {/* Upload Modal */}
@@ -408,6 +505,17 @@ export default function RecipesPage() {
           setGridData(data)
           setIsUploadOpen(false)
         }}
+      />
+
+      {/* Create Recipe Dialog */}
+      <CreateRecipeDialog
+        isOpen={isCreateRecipeOpen}
+        onClose={() => setIsCreateRecipeOpen(false)}
+        onRecipeCreated={handleRecipeCreated}
+        materialId={createRecipeMaterialId}
+        methodId={createRecipeMethodId}
+        materials={apiMaterials}
+        methods={apiMethods}
       />
 
       {/* Material Dialog */}

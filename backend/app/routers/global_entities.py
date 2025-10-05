@@ -9,7 +9,7 @@ from app.models.global_entities import (
     ItemGlobalCreate, ItemGlobalOut,
     SubstituteGlobalCreate, SubstituteGlobalOut,
     RecipeGlobalCreate, RecipeGlobalOut,
-    RecipeOutputGlobalCreate, RecipeOutputGlobalOut,
+    RecipeOutputGlobalCreate, RecipeOutputGlobalOut, RecipeOutputDetailedOut,
     ItemWasteGlobalCreate, ItemWasteGlobalOut,
     SubstituteWasteGlobalCreate, SubstituteWasteGlobalOut,
     SubstituteRecipeGlobalCreate, SubstituteRecipeGlobalOut,
@@ -115,6 +115,27 @@ async def create_output_global(payload: OutputGlobalCreate, db: AsyncSession = D
     await db.commit()
     return dict(rs.mappings().first())
 
+@router.patch("/outputs/{output_id}", response_model=OutputGlobalOut)
+async def update_output_global(output_id: str, payload: OutputGlobalCreate, db: AsyncSession = Depends(get_db)):
+    rs = await db.execute(text("""
+        update outputs_global
+        set key = :key, name = :name, units_label = :units, value_per_kg = :value, max_output_capacity_kg = :capacity
+        where id = :id
+        returning *;
+    """), {
+        "id": output_id,
+        "key": payload.key,
+        "name": payload.name,
+        "units": payload.units_label,
+        "value": payload.value_per_kg,
+        "capacity": payload.max_output_capacity_kg
+    })
+    updated = rs.mappings().first()
+    await db.commit()
+    if not updated:
+        raise HTTPException(status_code=404, detail="Output not found")
+    return dict(updated)
+
 @router.delete("/outputs/{output_id}")
 async def delete_output_global(output_id: str, db: AsyncSession = Depends(get_db)):
     rs = await db.execute(text("delete from outputs_global where id = :id returning id"), {"id": output_id})
@@ -191,6 +212,25 @@ async def list_recipes_global(db: AsyncSession = Depends(get_db)):
     rs = await db.execute(text("select * from recipes_global order by created_at desc"))
     return [convert_db_row(r) for r in rs.mappings().all()]
 
+# === GET RECIPE BY MATERIAL & METHOD ===
+from pydantic import BaseModel
+
+class RecipeByMaterialMethodRequest(BaseModel):
+    material_id: str
+    method_id: str
+
+@router.post("/recipe-by-material-method", response_model=RecipeGlobalOut)
+async def get_recipe_by_material_method_post(payload: RecipeByMaterialMethodRequest, db: AsyncSession = Depends(get_db)):
+    rs = await db.execute(text("""
+        select * from recipes_global
+        where material_id = :material_id and method_id = :method_id
+        limit 1
+    """), {"material_id": payload.material_id, "method_id": payload.method_id})
+    recipe = rs.mappings().first()
+    if not recipe:
+        raise HTTPException(status_code=404, detail="Recipe not found for given material and method")
+    return convert_db_row(recipe)
+
 @router.post("/recipes", response_model=RecipeGlobalOut)
 async def create_recipe_global(payload: RecipeGlobalCreate, db: AsyncSession = Depends(get_db)):
     rs = await db.execute(text("""
@@ -221,6 +261,29 @@ async def delete_recipe_global(recipe_id: str, db: AsyncSession = Depends(get_db
 async def list_recipe_outputs(recipe_id: str, db: AsyncSession = Depends(get_db)):
     rs = await db.execute(text("select * from recipe_outputs_global where recipe_id = :recipe_id"), {"recipe_id": recipe_id})
     return [dict(r) for r in rs.mappings().all()]
+
+@router.get("/recipe-outputs-detailed/{recipe_id}", response_model=list[RecipeOutputDetailedOut])
+async def list_recipe_outputs_detailed(recipe_id: str, db: AsyncSession = Depends(get_db)):
+    """Get detailed output information for a recipe including output details and yield ratios"""
+    rs = await db.execute(text("""
+        SELECT 
+            ro.id as recipe_output_id,
+            ro.recipe_id,
+            ro.output_id,
+            ro.yield_ratio,
+            o.key as output_key,
+            o.name as output_name,
+            o.units_label,
+            o.value_per_kg,
+            o.max_output_capacity_kg,
+            o.created_at as output_created_at
+        FROM recipe_outputs_global ro
+        JOIN outputs_global o ON ro.output_id = o.id
+        WHERE ro.recipe_id = :recipe_id
+        ORDER BY o.name
+    """), {"recipe_id": recipe_id})
+    
+    return [convert_db_row(r) for r in rs.mappings().all()]
 
 @router.post("/recipe-outputs", response_model=RecipeOutputGlobalOut)
 async def create_recipe_output(payload: RecipeOutputGlobalCreate, db: AsyncSession = Depends(get_db)):
