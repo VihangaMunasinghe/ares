@@ -303,11 +303,16 @@ export interface SubstituteGlobal {
   id: string;
   key: string;
   name: string;
-  category: string;
-  default_mass_per_unit: number;
-  default_value_per_unit: number;
-  tags: string[];
+  value_per_unit: number;
+  lifetime_weeks: number;
   created_at: string;
+}
+
+export interface SubstituteGlobalCreate {
+  key: string;
+  name: string;
+  value_per_unit?: number;
+  lifetime_weeks?: number;
 }
 
 // Items catalog interface (joined data from backend)
@@ -362,6 +367,19 @@ export const globalEntitiesApi = {
   // Substitutes
   async getSubstitutes(): Promise<SubstituteGlobal[]> {
     return apiRequest<SubstituteGlobal[]>("/global/substitutes");
+  },
+
+  async createSubstitute(data: SubstituteGlobalCreate): Promise<SubstituteGlobal> {
+    return apiRequest<SubstituteGlobal>("/global/substitutes", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  },
+
+  async deleteSubstitute(substituteId: string): Promise<{ success: boolean; message: string }> {
+    return apiRequest<{ success: boolean; message: string }>(`/global/substitutes/${substituteId}`, {
+      method: "DELETE",
+    });
   },
 
   // Items Catalog (joined data)
