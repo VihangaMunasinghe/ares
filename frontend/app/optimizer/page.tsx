@@ -1,119 +1,270 @@
-"use client"
+"use client";
 
-import { useState, useEffect, useMemo } from "react"
-import { useSearchParams, useRouter } from "next/navigation"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { Progress } from "@/components/ui/progress"
-import { Input } from "@/components/ui/input"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { MdPlayArrow, MdTune, MdCheckCircle, MdError, MdSchedule, MdPending, MdCancel, MdSearch, MdFilterList, MdArrowBack } from "react-icons/md"
-import { mockMissions } from "@/types/mission"
-import { mockOptimizationJobs, mockOptimizationJobsForMission2 } from "@/lib/mock-data/optimization-jobs"
-import type { Job } from "@/types/jobs"
+import { useState, useEffect, useMemo } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  MdPlayArrow,
+  MdTune,
+  MdCheckCircle,
+  MdError,
+  MdSchedule,
+  MdPending,
+  MdCancel,
+  MdSearch,
+  MdFilterList,
+  MdArrowBack,
+} from "react-icons/md";
+import { missionsApi } from "@/lib/api/missions";
+import { jobsApi, type Job } from "@/lib/api/jobs";
 
 export default function SchedulerPage() {
-  const searchParams = useSearchParams()
-  const router = useRouter()
-  const missionId = searchParams.get("mission")
-  
-  const [selectedMission, setSelectedMission] = useState<any>(null)
-  const [allOptimizationJobs, setAllOptimizationJobs] = useState<Job[]>([])
-  const [searchQuery, setSearchQuery] = useState("")
-  const [statusFilter, setStatusFilter] = useState<string>("all")
-  const [typeFilter, setTypeFilter] = useState<string>("all")
-  const [currentPage, setCurrentPage] = useState(1)
-  const [itemsPerPage] = useState(10)
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const missionId = searchParams.get("mission");
+
+  const [selectedMission, setSelectedMission] = useState<any>(null);
+  const [allOptimizationJobs, setAllOptimizationJobs] = useState<Job[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [typeFilter, setTypeFilter] = useState<string>("all");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(10);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (missionId) {
-      const mission = mockMissions.find(m => m.id === missionId)
-      setSelectedMission(mission)
-      
-      // Load optimization jobs for this mission
-      const allJobs = [...mockOptimizationJobs, ...mockOptimizationJobsForMission2]
-      const missionJobs = allJobs.filter(job => job.missionId === missionId)
-      setAllOptimizationJobs(missionJobs)
+      const loadData = async () => {
+        setLoading(true);
+        setError(null);
+
+        try {
+          // Load mission details and jobs in parallel
+          const [mission, jobs] = await Promise.all([
+            missionsApi.getMission(missionId),
+            jobsApi.getJobsByMission(missionId),
+          ]);
+
+          setSelectedMission(mission);
+          setAllOptimizationJobs(jobs);
+        } catch (err) {
+          console.error("Failed to load data:", err);
+          setError(err instanceof Error ? err.message : "Failed to load data");
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      loadData();
     }
-  }, [missionId])
+  }, [missionId]);
 
   // Filter and search jobs
   const filteredJobs = useMemo(() => {
-    return allOptimizationJobs.filter(job => {
-      const matchesSearch = job.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          job.type.toLowerCase().includes(searchQuery.toLowerCase())
-      const matchesStatus = statusFilter === "all" || job.status === statusFilter
-      const matchesType = typeFilter === "all" || job.type === typeFilter
-      
-      return matchesSearch && matchesStatus && matchesType
-    })
-  }, [allOptimizationJobs, searchQuery, statusFilter, typeFilter])
+    return allOptimizationJobs.filter((job) => {
+      const matchesSearch =
+        job.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        job.type.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesStatus =
+        statusFilter === "all" || job.status === statusFilter;
+      const matchesType = typeFilter === "all" || job.type === typeFilter;
+
+      return matchesSearch && matchesStatus && matchesType;
+    });
+  }, [allOptimizationJobs, searchQuery, statusFilter, typeFilter]);
 
   // Paginate jobs
   const paginatedJobs = useMemo(() => {
-    const startIndex = (currentPage - 1) * itemsPerPage
-    return filteredJobs.slice(startIndex, startIndex + itemsPerPage)
-  }, [filteredJobs, currentPage, itemsPerPage])
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return filteredJobs.slice(startIndex, startIndex + itemsPerPage);
+  }, [filteredJobs, currentPage, itemsPerPage]);
 
-  const totalPages = Math.ceil(filteredJobs.length / itemsPerPage)
+  const totalPages = Math.ceil(filteredJobs.length / itemsPerPage);
 
   // Reset to first page when filters change
   useEffect(() => {
-    setCurrentPage(1)
-  }, [searchQuery, statusFilter, typeFilter])
+    setCurrentPage(1);
+  }, [searchQuery, statusFilter, typeFilter]);
 
   const getStatusIcon = (status: Job["status"]) => {
     switch (status) {
       case "completed":
-        return <MdCheckCircle className="w-4 h-4 text-green-500" />
+        return <MdCheckCircle className="w-4 h-4 text-green-500" />;
       case "running":
-        return <MdSchedule className="w-4 h-4 text-blue-500" />
+        return <MdSchedule className="w-4 h-4 text-blue-500" />;
       case "failed":
-        return <MdError className="w-4 h-4 text-red-500" />
+        return <MdError className="w-4 h-4 text-red-500" />;
       case "pending":
-        return <MdPending className="w-4 h-4 text-yellow-500" />
+        return <MdPending className="w-4 h-4 text-yellow-500" />;
       case "cancelled":
-        return <MdCancel className="w-4 h-4 text-gray-500" />
+        return <MdCancel className="w-4 h-4 text-gray-500" />;
       default:
-        return <MdPending className="w-4 h-4 text-gray-500" />
+        return <MdPending className="w-4 h-4 text-gray-500" />;
     }
-  }
+  };
 
   const getStatusVariant = (status: Job["status"]) => {
     switch (status) {
       case "completed":
-        return "default"
+        return "default";
       case "running":
-        return "secondary"
+        return "secondary";
       case "failed":
-        return "destructive"
+        return "destructive";
       case "pending":
-        return "outline"
+        return "outline";
       case "cancelled":
-        return "secondary"
+        return "secondary";
       default:
-        return "outline"
+        return "outline";
     }
-  }
+  };
 
-
-  if (!missionId || !selectedMission) {
+  if (!missionId) {
     return (
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-foreground">Mission Optimizer</h1>
-            <p className="text-muted-foreground mt-1">Optimize and schedule mission operations</p>
+            <h1 className="text-3xl font-bold text-foreground">
+              Mission Optimizer
+            </h1>
+            <p className="text-muted-foreground mt-1">
+              Optimize and schedule mission operations
+            </p>
           </div>
         </div>
         <Card>
           <CardContent className="flex items-center justify-center h-64">
-            <p className="text-muted-foreground">Please select a mission to view optimization options</p>
+            <p className="text-muted-foreground">
+              Please select a mission to view optimization options
+            </p>
           </CardContent>
         </Card>
       </div>
-    )
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => router.push("/missions")}
+              className="gap-2 hover:bg-muted"
+            >
+              <MdArrowBack className="w-4 h-4" />
+            </Button>
+            <div>
+              <h1 className="text-3xl font-bold text-foreground">
+                Mission Optimizer
+              </h1>
+              <p className="text-muted-foreground mt-1">
+                Loading mission data...
+              </p>
+            </div>
+          </div>
+        </div>
+        <Card>
+          <CardContent className="flex items-center justify-center h-64">
+            <div className="text-center space-y-4">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+              <p className="text-muted-foreground">
+                Loading optimization jobs...
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => router.push("/missions")}
+              className="gap-2 hover:bg-muted"
+            >
+              <MdArrowBack className="w-4 h-4" />
+            </Button>
+            <div>
+              <h1 className="text-3xl font-bold text-foreground">
+                Mission Optimizer
+              </h1>
+              <p className="text-muted-foreground mt-1">
+                Error loading mission data
+              </p>
+            </div>
+          </div>
+        </div>
+        <Card>
+          <CardContent className="flex items-center justify-center h-64">
+            <div className="text-center space-y-4">
+              <MdError className="w-12 h-12 text-red-500 mx-auto" />
+              <div>
+                <p className="text-red-600 font-medium">
+                  Failed to load mission data
+                </p>
+                <p className="text-muted-foreground text-sm mt-1">{error}</p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="mt-4"
+                  onClick={() => window.location.reload()}
+                >
+                  Try Again
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (!selectedMission) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-foreground">
+              Mission Optimizer
+            </h1>
+            <p className="text-muted-foreground mt-1">Mission not found</p>
+          </div>
+        </div>
+        <Card>
+          <CardContent className="flex items-center justify-center h-64">
+            <p className="text-muted-foreground">Mission not found</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
   }
 
   return (
@@ -123,31 +274,38 @@ export default function SchedulerPage() {
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => router.push('/missions')}
+            onClick={() => router.push("/missions")}
             className="gap-2 hover:bg-muted"
           >
             <MdArrowBack className="w-4 h-4" />
           </Button>
           <div>
-            <h1 className="text-3xl font-bold text-foreground">Mission Optimizer</h1>
+            <h1 className="text-3xl font-bold text-foreground">
+              Mission Optimizer
+            </h1>
             <p className="text-muted-foreground mt-1">
-              Optimizing: <span className="font-semibold">{selectedMission.name}</span>
+              Optimizing:{" "}
+              <span className="font-semibold">{selectedMission.name}</span>
             </p>
           </div>
         </div>
-        <Button onClick={() => router.push(`/optimizer/new?mission=${missionId}`)} className="gap-2 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700">
+        <Button
+          onClick={() => router.push(`/optimizer/new?mission=${missionId}`)}
+          className="gap-2 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+        >
           Create New Job
         </Button>
       </div>
-
 
       {/* Optimization Jobs List */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <h2 className="text-2xl font-semibold">Optimization Jobs</h2>
-          <Badge variant="outline">{filteredJobs.length} of {allOptimizationJobs.length} jobs</Badge>
+          <Badge variant="outline">
+            {filteredJobs.length} of {allOptimizationJobs.length} jobs
+          </Badge>
         </div>
-        
+
         {/* Search and Filters */}
         <Card>
           <CardContent className="py-0 px-4">
@@ -176,7 +334,7 @@ export default function SchedulerPage() {
                     <SelectItem value="cancelled">Cancelled</SelectItem>
                   </SelectContent>
                 </Select>
-                
+
                 <Select value={typeFilter} onValueChange={setTypeFilter}>
                   <SelectTrigger className="w-32">
                     <SelectValue />
@@ -193,16 +351,15 @@ export default function SchedulerPage() {
             </div>
           </CardContent>
         </Card>
-        
+
         <div className="grid gap-4">
           {filteredJobs.length === 0 ? (
             <Card>
               <CardContent className="flex items-center justify-center h-32">
                 <p className="text-muted-foreground">
-                  {allOptimizationJobs.length === 0 
+                  {allOptimizationJobs.length === 0
                     ? "No optimization jobs found for this mission"
-                    : "No jobs match your current filters"
-                  }
+                    : "No jobs match your current filters"}
                 </p>
               </CardContent>
             </Card>
@@ -216,8 +373,9 @@ export default function SchedulerPage() {
                       <div>
                         <CardTitle className="text-lg">{job.name}</CardTitle>
                         <CardDescription>
-                          {job.type.charAt(0).toUpperCase() + job.type.slice(1)} Job • 
-                          Created {new Date(job.createdAt).toLocaleDateString()}
+                          {job.type.charAt(0).toUpperCase() + job.type.slice(1)}{" "}
+                          Job • Created{" "}
+                          {new Date(job.createdAt).toLocaleDateString()}
                         </CardDescription>
                       </div>
                     </div>
@@ -237,35 +395,37 @@ export default function SchedulerPage() {
                         <Progress value={job.progress} className="w-full" />
                       </div>
                     )}
-                    
 
-                    
                     {job.error && (
                       <div className="text-sm text-red-600 bg-red-50 p-2 rounded">
                         Error: {job.error}
                       </div>
                     )}
-                    
+
                     {job.status === "completed" && !job.result?.success && (
                       <div className="flex justify-end">
-                        <Button 
-                          size="sm" 
+                        <Button
+                          size="sm"
                           variant="outline"
-                          onClick={() => router.push(`/optimizer/results/${job.id}`)}
+                          onClick={() =>
+                            router.push(`/optimizer/results/${job.id}`)
+                          }
                           className="gap-1"
                         >
                           View Details
                         </Button>
                       </div>
                     )}
-                    
+
                     {job.result && job.result.success && (
                       <div className="space-y-4">
                         <div className="flex items-center justify-between">
                           <h4 className="font-medium">Optimization Results</h4>
-                          <Button 
-                            size="sm" 
-                            onClick={() => router.push(`/optimizer/results/${job.id}`)}
+                          <Button
+                            size="sm"
+                            onClick={() =>
+                              router.push(`/optimizer/results/${job.id}`)
+                            }
                             className="gap-1"
                           >
                             View Results
@@ -273,16 +433,28 @@ export default function SchedulerPage() {
                         </div>
                         <div className="grid grid-cols-3 gap-4 text-sm">
                           <div className="border border-green-200 bg-green-100 dark:bg-green-900/20 dark:border-green-800 p-3 rounded-lg">
-                            <div className="font-medium text-green-800 dark:text-green-200">Score</div>
-                            <div className="text-lg font-bold text-green-900 dark:text-green-100">{job.result.metrics.optimizationScore}/10</div>
+                            <div className="font-medium text-green-800 dark:text-green-200">
+                              Score
+                            </div>
+                            <div className="text-lg font-bold text-green-900 dark:text-green-100">
+                              {job.result.metrics.optimizationScore}/10
+                            </div>
                           </div>
                           <div className="border border-blue-200 bg-blue-100 dark:bg-blue-900/20 dark:border-blue-800 p-3 rounded-lg">
-                            <div className="font-medium text-blue-800 dark:text-blue-200">Duration</div>
-                            <div className="text-lg font-bold text-blue-900 dark:text-blue-100">{job.result.metrics.duration}m</div>
+                            <div className="font-medium text-blue-800 dark:text-blue-200">
+                              Duration
+                            </div>
+                            <div className="text-lg font-bold text-blue-900 dark:text-blue-100">
+                              {job.result.metrics.duration}m
+                            </div>
                           </div>
                           <div className="border border-purple-200 bg-purple-100 dark:bg-purple-900/20 dark:border-purple-800 p-3 rounded-lg">
-                            <div className="font-medium text-purple-800 dark:text-purple-200">Items Processed</div>
-                            <div className="text-lg font-bold text-purple-900 dark:text-purple-100">{job.result.metrics.itemsProcessed}</div>
+                            <div className="font-medium text-purple-800 dark:text-purple-200">
+                              Items Processed
+                            </div>
+                            <div className="text-lg font-bold text-purple-900 dark:text-purple-100">
+                              {job.result.metrics.itemsProcessed}
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -293,46 +465,53 @@ export default function SchedulerPage() {
             ))
           )}
         </div>
-        
+
         {/* Pagination */}
         {totalPages > 1 && (
           <div className="flex items-center justify-between">
             <div className="text-sm text-muted-foreground">
-              Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, filteredJobs.length)} of {filteredJobs.length} jobs
+              Showing {(currentPage - 1) * itemsPerPage + 1} to{" "}
+              {Math.min(currentPage * itemsPerPage, filteredJobs.length)} of{" "}
+              {filteredJobs.length} jobs
             </div>
             <div className="flex items-center gap-2">
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setCurrentPage(page => Math.max(1, page - 1))}
+                onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
                 disabled={currentPage === 1}
               >
                 Previous
               </Button>
-              
+
               <div className="flex items-center gap-1">
                 {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                  const pageNumber = Math.max(1, Math.min(totalPages - 4, currentPage - 2)) + i
-                  if (pageNumber > totalPages) return null
-                  
+                  const pageNumber =
+                    Math.max(1, Math.min(totalPages - 4, currentPage - 2)) + i;
+                  if (pageNumber > totalPages) return null;
+
                   return (
                     <Button
                       key={pageNumber}
-                      variant={pageNumber === currentPage ? "default" : "outline"}
+                      variant={
+                        pageNumber === currentPage ? "default" : "outline"
+                      }
                       size="sm"
                       onClick={() => setCurrentPage(pageNumber)}
                       className="w-8 h-8 p-0"
                     >
                       {pageNumber}
                     </Button>
-                  )
+                  );
                 })}
               </div>
-              
+
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setCurrentPage(page => Math.min(totalPages, page + 1))}
+                onClick={() =>
+                  setCurrentPage((page) => Math.min(totalPages, page + 1))
+                }
                 disabled={currentPage === totalPages}
               >
                 Next
@@ -342,5 +521,5 @@ export default function SchedulerPage() {
         )}
       </div>
     </div>
-  )
+  );
 }

@@ -104,13 +104,13 @@ class OptimizationWorker:
         try:
             # Parse the incoming message
             data = json.loads(body)
-            request_id = data.get('request_id', 'unknown')
+            job_id = data.get('job_id', 'unknown')
             optimization_data = data.get('data', {})
             
             # Convert string keys back to tuples
             optimization_data = convert_string_keys_to_tuples(optimization_data)
             
-            print(f"Request ID: {request_id}")
+            print(f"Job ID: {job_id}")
             
             # Run the optimization
             model = MarsRecyclingOptimizer()
@@ -132,7 +132,7 @@ class OptimizationWorker:
             
             # Build response
             response = {
-                'request_id': request_id,
+                'job_id': job_id,
                 'status': 'success',
                 'results':optimization_results
             }
