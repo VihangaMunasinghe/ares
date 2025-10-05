@@ -81,7 +81,7 @@ export function Sidebar() {
                 )} />
                 {isHovered && (
                   <span className={cn(
-                    "font-medium relative z-10 tracking-wide min-w-0 transition-opacity duration-200",
+                    "font-technical font-medium relative z-10 tracking-wide min-w-0 transition-opacity duration-200 uppercase",
                     isActive ? "text-sidebar-foreground font-semibold" : "text-sidebar-foreground/70"
                   )}>{item.name}</span>
                 )}

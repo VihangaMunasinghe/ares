@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
 import { MdAdd, MdSearch } from "react-icons/md"
 import { SubstitutesTable } from "./components/SubstitutesTable"
 import { SubstituteForm } from "./components/SubstituteForm"
@@ -120,57 +122,107 @@ export default function SubstitutesPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-muted-foreground">Loading substitutes...</div>
+      <div className="space-y-6">
+        {/* Header with NASA-style typography */}
+        <div className="relative">
+          <div className="absolute top-0 left-0 w-20 h-1 bg-gradient-to-r from-primary to-accent rounded-full"></div>
+          <h1 className="text-3xl font-bold text-foreground tracking-tight pt-4 font-technical">SUBSTITUTES CATALOG</h1>
+          <p className="text-muted-foreground mt-2 font-technical tracking-wide">
+            Global substitute templates for mission planning and waste optimization • Sol {new Date().getFullYear() - 2020 + 1}
+          </p>
+        </div>
+
+        <Card className="border-border/50 bg-card/50 backdrop-blur-sm">
+          <CardContent className="flex items-center justify-center py-12">
+            <div className="text-center space-y-2">
+              <div className="animate-pulse">
+                <div className="h-4 bg-muted rounded w-32 mx-auto"></div>
+              </div>
+              <p className="text-muted-foreground font-technical">Loading substitutes catalog...</p>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     )
   }
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Substitutes Catalog</h1>
-        <p className="text-muted-foreground">
-          Global substitute templates for mission planning and waste optimization
+      {/* Header with NASA-style typography */}
+      <div className="relative">
+        <div className="absolute top-0 left-0 w-20 h-1 bg-gradient-to-r from-primary to-accent rounded-full"></div>
+        <h1 className="text-3xl font-bold text-foreground tracking-tight pt-4 font-technical">SUBSTITUTES CATALOG</h1>
+        <p className="text-muted-foreground mt-2 font-technical tracking-wide">
+          Global substitute templates for mission planning and waste optimization • Sol {new Date().getFullYear() - 2020 + 1}
         </p>
       </div>
 
-      {/* Actions Bar */}
-      <div className="flex flex-col sm:flex-row justify-between gap-4">
-        <div className="flex flex-col sm:flex-row gap-2">
-          <div className="relative">
-            <MdSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
-            <Input
-              placeholder="Search substitutes by name or key..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 w-full sm:w-80"
-            />
+      {/* Action Bar */}
+      <div className="flex items-center justify-between">
+        <div className="relative flex-1 max-w-md">
+          <MdSearch className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+          <Input
+            placeholder="Search substitutes by name or key..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10"
+          />
+        </div>
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-4 text-sm text-muted-foreground font-technical">
+            <span>
+              <strong className="text-foreground">{filteredSubstitutes.length}</strong> substitutes
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              onClick={() => setShowCreateForm(true)}
+              className="gap-2"
+            >
+              <MdAdd className="w-4 h-4" />
+              Add Substitute
+            </Button>
           </div>
         </div>
-        <div className="flex gap-2">
-          <Button onClick={() => setShowCreateForm(true)}>
-            <MdAdd className="w-4 h-4 mr-2" />
-            Add Substitute
-          </Button>
-        </div>
       </div>
 
-      {/* Stats */}
-      <div className="flex gap-2 flex-wrap">
-        <span className="text-sm text-muted-foreground self-center">
-          {filteredSubstitutes.length} substitutes
-        </span>
-      </div>
-
-      {/* Substitutes Table */}
-      <SubstitutesTable
-        substitutes={filteredSubstitutes}
-        onView={handleView}
-        onEdit={handleEdit}
-        onDuplicate={handleDuplicate}
-        onDelete={handleDelete}
-      />
+      {/* Substitutes Table Card */}
+      {loading ? (
+        <Card className="border-border/50 bg-card/50 backdrop-blur-sm">
+          <CardContent className="flex items-center justify-center py-12">
+            <div className="text-center space-y-2">
+              <div className="animate-pulse">
+                <div className="h-4 bg-muted rounded w-32 mx-auto"></div>
+              </div>
+              <p className="text-muted-foreground font-technical">Loading substitutes catalog...</p>
+            </div>
+          </CardContent>
+        </Card>
+      ) : (
+        <Card className="border-border/50 bg-card/50 backdrop-blur-sm">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="font-technical tracking-wide">SUBSTITUTION MATRIX</CardTitle>
+                <CardDescription className="font-technical text-xs tracking-wider uppercase">Global substitutes database • Mars operations</CardDescription>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                <span className="text-xs font-technical text-green-400">LIVE</span>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <SubstitutesTable
+              substitutes={filteredSubstitutes}
+              onView={handleView}
+              onEdit={handleEdit}
+              onDuplicate={handleDuplicate}
+              onDelete={handleDelete}
+            />
+          </CardContent>
+        </Card>
+      )}
 
       {/* Create Form Dialog */}
       <SubstituteForm
