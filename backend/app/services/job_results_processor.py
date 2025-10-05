@@ -10,6 +10,7 @@ from sqlalchemy import text
 from typing import Dict, Any, List
 import logging
 import uuid
+import json
 
 logger = logging.getLogger(__name__)
 
@@ -36,11 +37,12 @@ class JobResultsProcessor:
             True if processed successfully, False otherwise
         """
         try:
-            job_id = result.get('job_id')
+            # Try to get job_id from different possible fields
+            job_id = result.get('job_id') or result.get('request_id')
             status = result.get('status', 'unknown')
             
             if not job_id:
-                logger.error("No job_id in optimization result")
+                logger.error(f"No job_id or request_id in optimization result: {result}")
                 return False
             
             if status == 'success':
@@ -65,7 +67,7 @@ class JobResultsProcessor:
                 
             else:
                 # Handle failed optimization
-                error_message = result.get('error_message', 'Unknown optimization error')
+                error_message = result.get('error_message') or result.get('error', 'Unknown optimization error')
                 await self.db.execute(text("""
                     UPDATE jobs 
                     SET status = 'failed', 
@@ -180,7 +182,7 @@ class JobResultsProcessor:
                         "recipe_id": recipe_id,
                         "processed_kg": method_data.get('processed_kg', 0),
                         "is_running": method_data.get('is_running', 0) == 1,
-                        "materials_processed": method_data.get('by_material', {})
+                        "materials_processed": json.dumps(method_data.get('by_material', {}))
                     })
     
     async def _save_outputs(self, job_id: str, outputs: List[Dict[str, Any]]):
@@ -233,7 +235,7 @@ class JobResultsProcessor:
                     "week": week_data.get('week'),
                     "made": week_data.get('made', 0),
                     "inventory": week_data.get('inventory', 0),
-                    "used_for_items": week_data.get('used_for', {})
+                    "used_for_items": json.dumps(week_data.get('used_for', {}))
                 })
     
     async def _save_items(self, job_id: str, items: List[Dict[str, Any]]):

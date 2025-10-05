@@ -591,27 +591,57 @@ async def get_job_result_schedule(job_id: str, db: AsyncSession = Depends(get_db
     rs = await db.execute(text("select * from job_result_schedule where job_id = :job_id order by week"), {"job_id": job_id})
     return [dict(r) for r in rs.mappings().all()]
 
-@router.get("/{job_id}/results/outputs", response_model=list[JobResultOutputOut])
+@router.get("/{job_id}/results/outputs", response_model=list[dict])
 async def get_job_result_outputs(job_id: str, db: AsyncSession = Depends(get_db)):
-    rs = await db.execute(text("select * from job_result_outputs where job_id = :job_id order by week, output_id"), {"job_id": job_id})
+    rs = await db.execute(text("""
+        SELECT jro.*, og.name as output_name 
+        FROM job_result_outputs jro
+        JOIN outputs_global og ON jro.output_id = og.id
+        WHERE jro.job_id = :job_id 
+        ORDER BY jro.week, og.name
+    """), {"job_id": job_id})
     return [dict(r) for r in rs.mappings().all()]
 
-@router.get("/{job_id}/results/items", response_model=list[JobResultItemOut])
+@router.get("/{job_id}/results/items", response_model=list[dict])
 async def get_job_result_items(job_id: str, db: AsyncSession = Depends(get_db)):
-    rs = await db.execute(text("select * from job_result_items where job_id = :job_id order by week, item_id"), {"job_id": job_id})
+    rs = await db.execute(text("""
+        SELECT jri.*, ig.name as item_name 
+        FROM job_result_items jri
+        JOIN items_global ig ON jri.item_id = ig.id
+        WHERE jri.job_id = :job_id 
+        ORDER BY jri.week, ig.name
+    """), {"job_id": job_id})
     return [dict(r) for r in rs.mappings().all()]
 
-@router.get("/{job_id}/results/substitutes", response_model=list[JobResultSubstituteOut])
+@router.get("/{job_id}/results/substitutes", response_model=list[dict])
 async def get_job_result_substitutes(job_id: str, db: AsyncSession = Depends(get_db)):
-    rs = await db.execute(text("select * from job_result_substitutes where job_id = :job_id order by week, substitute_id"), {"job_id": job_id})
+    rs = await db.execute(text("""
+        SELECT jrs.*, sg.name as substitute_name 
+        FROM job_result_substitutes jrs
+        JOIN substitutes_global sg ON jrs.substitute_id = sg.id
+        WHERE jrs.job_id = :job_id 
+        ORDER BY jrs.week, sg.name
+    """), {"job_id": job_id})
     return [dict(r) for r in rs.mappings().all()]
 
-@router.get("/{job_id}/results/substitute-breakdown", response_model=list[JobResultSubstituteBreakdownOut])
+@router.get("/{job_id}/results/substitute-breakdown", response_model=list[dict])
 async def get_job_result_substitute_breakdown(job_id: str, db: AsyncSession = Depends(get_db)):
-    rs = await db.execute(text("select * from job_result_substitute_breakdown where job_id = :job_id order by substitute_id"), {"job_id": job_id})
+    rs = await db.execute(text("""
+        SELECT jrsb.*, sg.name as substitute_name 
+        FROM job_result_substitute_breakdown jrsb
+        JOIN substitutes_global sg ON jrsb.substitute_id = sg.id
+        WHERE jrsb.job_id = :job_id 
+        ORDER BY sg.name
+    """), {"job_id": job_id})
     return [dict(r) for r in rs.mappings().all()]
 
-@router.get("/{job_id}/results/weight-loss", response_model=list[JobResultWeightLossOut])
+@router.get("/{job_id}/results/weight-loss", response_model=list[dict])
 async def get_job_result_weight_loss(job_id: str, db: AsyncSession = Depends(get_db)):
-    rs = await db.execute(text("select * from job_result_weight_loss where job_id = :job_id order by item_id"), {"job_id": job_id})
+    rs = await db.execute(text("""
+        SELECT jrwl.*, ig.name as item_name 
+        FROM job_result_weight_loss jrwl
+        JOIN items_global ig ON jrwl.item_id = ig.id
+        WHERE jrwl.job_id = :job_id 
+        ORDER BY ig.name
+    """), {"job_id": job_id})
     return [dict(r) for r in rs.mappings().all()]

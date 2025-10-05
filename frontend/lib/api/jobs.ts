@@ -49,6 +49,8 @@ export interface Job {
   status: JobStatus;
   progress: number;
   createdAt: string;
+  startedAt?: string;
+  completedAt?: string;
   error?: string;
   result?: {
     success: boolean;
@@ -105,6 +107,8 @@ function transformJob(backendJob: BackendJob): Job {
     status: backendJob.status,
     progress,
     createdAt: backendJob.created_at,
+    startedAt: backendJob.started_at || undefined,
+    completedAt: backendJob.completed_at || undefined,
     error: backendJob.error_message || undefined,
     result,
   };
@@ -439,5 +443,34 @@ export const jobsApi = {
         available,
       }),
     });
+  },
+
+  // Job Results API methods
+  async getJobResultSummary(jobId: string): Promise<any> {
+    return apiRequest<any>(`/jobs/${jobId}/results/summary`);
+  },
+
+  async getJobResultSchedule(jobId: string): Promise<any[]> {
+    return apiRequest<any[]>(`/jobs/${jobId}/results/schedule`);
+  },
+
+  async getJobResultOutputs(jobId: string): Promise<any[]> {
+    return apiRequest<any[]>(`/jobs/${jobId}/results/outputs`);
+  },
+
+  async getJobResultSubstitutes(jobId: string): Promise<any[]> {
+    return apiRequest<any[]>(`/jobs/${jobId}/results/substitutes`);
+  },
+
+  async getJobResultSubstituteBreakdown(jobId: string): Promise<any[]> {
+    return apiRequest<any[]>(`/jobs/${jobId}/results/substitute-breakdown`);
+  },
+
+  async getJobResultItems(jobId: string): Promise<any[]> {
+    return apiRequest<any[]>(`/jobs/${jobId}/results/items`);
+  },
+
+  async getJobResultWeightLoss(jobId: string): Promise<any[]> {
+    return apiRequest<any[]>(`/jobs/${jobId}/results/weight-loss`);
   },
 };

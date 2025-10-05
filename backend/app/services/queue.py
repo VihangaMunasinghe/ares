@@ -2,8 +2,9 @@ import json
 import pika
 import asyncio
 from typing import Dict, Any, Optional
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from app.core.db import get_sessionmaker
+from app.core.config import get_settings
 import uuid
 from datetime import datetime, timezone
 from decimal import Decimal
@@ -287,46 +288,122 @@ class QueueConsumer:
                 except Exception as close_error:
                     print(f"Error closing session: {close_error}")
     
+    def save_result_to_database_sync(self, result: Dict[str, Any]) -> bool:
+        """
+        Synchronous wrapper for saving optimization result to database
+        
+        Args:
+            result: Optimization result to save
+            
+        Returns:
+            True if saved successfully, False otherwise
+        """
+        try:
+            # Create a completely isolated database operation
+            async def isolated_save():
+                engine = None
+                session = None
+                try:
+                    # Create a completely isolated database engine for this operation
+                    settings = get_settings()
+                    if not settings.SUPABASE_DB_URL:
+                        raise RuntimeError("SUPABASE_DB_URL is not set")
+                    
+                    # Create a separate engine with minimal pool settings
+                    engine = create_async_engine(
+                        settings.SUPABASE_DB_URL,
+                        pool_pre_ping=True,
+                        future=True,
+                        pool_size=1,  # Single connection for isolation
+                        max_overflow=0,
+                        pool_recycle=3600,
+                        pool_timeout=30,
+                        echo=False
+                    )
+                    
+                    # Create a session maker for this isolated engine
+                    SessionLocal = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
+                    session = SessionLocal()
+                    
+                    processor = JobResultsProcessor(session)
+                    success = await processor.process_optimization_result(result)
+                    
+                    if success:
+                        job_id = result.get('request_id', 'unknown')
+                        print(f"Successfully saved optimization result for request {job_id}")
+                        return True
+                    else:
+                        print(f"Failed to save optimization result")
+                        return False
+                        
+                except Exception as e:
+                    print(f"Error saving result to database: {e}")
+                    if session:
+                        try:
+                            await session.rollback()
+                        except Exception as rollback_error:
+                            print(f"Error during rollback: {rollback_error}")
+                    return False
+                finally:
+                    if session:
+                        try:
+                            await session.close()
+                        except Exception as close_error:
+                            print(f"Error closing session: {close_error}")
+                    if engine:
+                        try:
+                            await engine.dispose()
+                        except Exception as engine_error:
+                            print(f"Error disposing engine: {engine_error}")
+            
+            # Create a new event loop for this thread
+            new_loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(new_loop)
+            try:
+                success = new_loop.run_until_complete(isolated_save())
+                return success
+            finally:
+                new_loop.close()
+                # Reset the event loop to None for this thread
+                asyncio.set_event_loop(None)
+        except Exception as e:
+            print(f"Error in sync database save: {e}")
+            return False
+    
     def start_consuming_results(self):
         """Start consuming optimization results and saving to database"""
-        loop = asyncio.get_event_loop()
-
         def callback(ch, method, properties, body):
             try:
                 result = json.loads(body)
-                job_id = result.get('job_id', 'unknown')
+                job_id = result.get('request_id', 'unknown')
                 print(f"Received optimization result: {job_id}")
 
-                async def process():
-                    try:
-                        success = await self.save_result_to_database(result)
-                        if success:
-                            print(f"Successfully processed optimization result for job {job_id}")
-                        else:
-                            print(f"Failed to process optimization result for job {job_id}")
-                        ch.basic_ack(delivery_tag=method.delivery_tag)
-                    except Exception as db_error:
-                        print(f"Database error processing result for job {job_id}: {db_error}")
-                        ch.basic_nack(delivery_tag=method.delivery_tag, requeue=False)
-
-                # Schedule coroutine in existing loop
-                loop.create_task(process())
+                # Use the synchronous wrapper to avoid event loop conflicts
+                print(f"Saving optimization result to database: {result}")
+                success = self.save_result_to_database_sync(result)
+                
+                if success:
+                    print(f"Successfully processed optimization result for job {job_id}")
+                    ch.basic_ack(delivery_tag=method.delivery_tag)
+                else:
+                    print(f"Failed to process optimization result for job {job_id}")
+                    ch.basic_nack(delivery_tag=method.delivery_tag, requeue=False)
 
             except json.JSONDecodeError as e:
                 print(f"Invalid JSON in message: {e}")
                 ch.basic_nack(delivery_tag=method.delivery_tag, requeue=False)
             except Exception as e:
-                    print(f"Error processing result: {e}")
-                    ch.basic_nack(delivery_tag=method.delivery_tag, requeue=False)
+                print(f"Error processing result: {e}")
+                ch.basic_nack(delivery_tag=method.delivery_tag, requeue=False)
 
-            # Start consuming
-            self.channel.basic_consume(
-                queue=self.output_queue,
-                on_message_callback=callback
-            )
+        # Start consuming
+        self.channel.basic_consume(
+            queue=self.output_queue,
+            on_message_callback=callback
+        )
 
-            print("Waiting for optimization results. To exit press CTRL+C")
-            self.channel.start_consuming()
+        print("Waiting for optimization results. To exit press CTRL+C")
+        self.channel.start_consuming()
 
 
 
