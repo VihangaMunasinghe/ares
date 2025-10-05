@@ -319,7 +319,11 @@ export const jobsApi = {
       `/jobs/${jobId}/inventory/materials`,
       {
         method: "POST",
-        body: JSON.stringify({ material_id: materialId, qty_kg: qtyKg }),
+        body: JSON.stringify({
+          job_id: jobId,
+          material_id: materialId,
+          qty_kg: qtyKg,
+        }),
       }
     );
   },
@@ -333,7 +337,11 @@ export const jobsApi = {
       `/jobs/${jobId}/inventory/outputs`,
       {
         method: "POST",
-        body: JSON.stringify({ output_id: outputId, qty_kg: qtyKg }),
+        body: JSON.stringify({
+          job_id: jobId,
+          output_id: outputId,
+          qty_kg: qtyKg,
+        }),
       }
     );
   },
@@ -345,7 +353,11 @@ export const jobsApi = {
   ): Promise<{ success: boolean }> {
     return apiRequest<{ success: boolean }>(`/jobs/${jobId}/inventory/items`, {
       method: "POST",
-      body: JSON.stringify({ item_id: itemId, qty_units: qtyUnits }),
+      body: JSON.stringify({
+        job_id: jobId,
+        item_id: itemId,
+        qty_units: qtyUnits,
+      }),
     });
   },
 
@@ -359,6 +371,7 @@ export const jobsApi = {
       {
         method: "POST",
         body: JSON.stringify({
+          job_id: jobId,
           substitute_id: substituteId,
           qty_units: qtyUnits,
         }),
@@ -375,7 +388,7 @@ export const jobsApi = {
   ): Promise<{ success: boolean }> {
     return apiRequest<{ success: boolean }>(`/jobs/${jobId}/demands`, {
       method: "POST",
-      body: JSON.stringify({ item_id: itemId, week, amount }),
+      body: JSON.stringify({ job_id: jobId, item_id: itemId, week, amount }),
     });
   },
 
@@ -387,7 +400,7 @@ export const jobsApi = {
   ): Promise<{ success: boolean }> {
     return apiRequest<{ success: boolean }>(`/jobs/${jobId}/deadlines`, {
       method: "POST",
-      body: JSON.stringify({ item_id: itemId, week, amount }),
+      body: JSON.stringify({ job_id: jobId, item_id: itemId, week, amount }),
     });
   },
 
@@ -401,6 +414,7 @@ export const jobsApi = {
     return apiRequest<{ success: boolean }>(`/jobs/${jobId}/resources`, {
       method: "POST",
       body: JSON.stringify({
+        job_id: jobId,
         week,
         crew_available: crewAvailable,
         energy_available: energyAvailable,
@@ -418,6 +432,7 @@ export const jobsApi = {
     return apiRequest<{ success: boolean }>(`/jobs/${jobId}/method-capacity`, {
       method: "POST",
       body: JSON.stringify({
+        job_id: jobId,
         method_id: methodId,
         week,
         max_capacity_kg: maxCapacityKg,

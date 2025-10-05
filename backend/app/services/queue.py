@@ -6,8 +6,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.db import get_sessionmaker
 import uuid
 from datetime import datetime, timezone
+from decimal import Decimal
 from app.services.mission_data_builder import MissionDataBuilder
 from app.services.job_results_processor import JobResultsProcessor
+
+
+class DecimalEncoder(json.JSONEncoder):
+    """Custom JSON encoder that handles Decimal objects"""
+    def default(self, obj):
+        if isinstance(obj, Decimal):
+            return float(obj)
+        return super().default(obj)
 
 
 class QueueProducer:
@@ -33,20 +42,26 @@ class QueueProducer:
             raise
     
     def disconnect(self):
-        """Close RabbitMQ connection"""
-        if self.connection and self.connection.is_open:
-            self.connection.close()
-            print("Disconnected from RabbitMQ")
+        """Close RabbitMQ connection safely"""
+        try:
+            if hasattr(self, 'connection') and self.connection and not self.connection.is_closed:
+                try:
+                    self.connection.close()
+                    print("Disconnected from RabbitMQ")
+                except Exception as e:
+                    print(f"Warning: Could not close connection gracefully: {e}")
+        except Exception as e:
+            print(f"Error during disconnect: {e}")
     
     def convert_tuple_keys_to_strings(self, data: Any) -> Any:
         """
-        Convert tuple keys to JSON-safe strings for serialization
+        Convert tuple keys to JSON-safe strings and handle Decimal objects for serialization
         
         Args:
-            data: Dictionary or nested structure with potential tuple keys
+            data: Dictionary or nested structure with potential tuple keys and Decimal values
             
         Returns:
-            Data structure with tuple keys converted to strings
+            Data structure with tuple keys converted to strings and Decimals to floats
         """
         if isinstance(data, dict):
             new_dict = {}
@@ -63,6 +78,8 @@ class QueueProducer:
             return new_dict
         elif isinstance(data, list):
             return [self.convert_tuple_keys_to_strings(item) for item in data]
+        elif isinstance(data, Decimal):
+            return float(data)
         else:
             return data
     
@@ -96,6 +113,10 @@ class QueueProducer:
             Request ID for tracking
         """
         try:
+            # Ensure we're connected
+            if not self.channel:
+                raise RuntimeError("Queue not connected. Call connect() first.")
+            
             # Fetch mission data from database
             optimization_data = await self.fetch_mission_data(job_id)
             
@@ -114,6 +135,7 @@ class QueueProducer:
             # Create message
             message = {
                 'request_id': job_id,
+                'job_id': job_id,  # Add job_id at top level for worker
                 'timestamp': datetime.utcnow().isoformat(),
                 'data': serializable_data
             }
@@ -122,7 +144,7 @@ class QueueProducer:
             self.channel.basic_publish(
                 exchange='',
                 routing_key=self.input_queue,
-                body=json.dumps(message),
+                body=json.dumps(message, cls=DecimalEncoder),
                 properties=pika.BasicProperties(
                     delivery_mode=2,  # Make message persistent
                     message_id=job_id,
@@ -234,61 +256,78 @@ class QueueConsumer:
         Returns:
             True if saved successfully, False otherwise
         """
+        session = None
         try:
             SessionLocal = get_sessionmaker()
-            async with SessionLocal() as session:
-                processor = JobResultsProcessor(session)
-                success = await processor.process_optimization_result(result)
-                
-                if success:
-                    job_id = result.get('job_id')
-                    print(f"Successfully saved optimization result for request {job_id}")
-                    return True
-                else:
-                    print(f"Failed to save optimization result")
-                    return False
+            session = SessionLocal()
+            
+            processor = JobResultsProcessor(session)
+            success = await processor.process_optimization_result(result)
+            
+            if success:
+                job_id = result.get('job_id', 'unknown')
+                print(f"Successfully saved optimization result for request {job_id}")
+                return True
+            else:
+                print(f"Failed to save optimization result")
+                return False
                 
         except Exception as e:
             print(f"Error saving result to database: {e}")
+            if session:
+                try:
+                    await session.rollback()
+                except Exception as rollback_error:
+                    print(f"Error during rollback: {rollback_error}")
             return False
+        finally:
+            if session:
+                try:
+                    await session.close()
+                except Exception as close_error:
+                    print(f"Error closing session: {close_error}")
     
     def start_consuming_results(self):
         """Start consuming optimization results and saving to database"""
-        try:
-            def callback(ch, method, properties, body):
-                try:
-                    result = json.loads(body)
-                    print(f"Received optimization result: {result.get('job_id')}")
-                    
-                    # Save to database
-                    loop = asyncio.new_event_loop()
-                    asyncio.set_event_loop(loop)
+        loop = asyncio.get_event_loop()
+
+        def callback(ch, method, properties, body):
+            try:
+                result = json.loads(body)
+                job_id = result.get('job_id', 'unknown')
+                print(f"Received optimization result: {job_id}")
+
+                async def process():
                     try:
-                        loop.run_until_complete(self.save_result_to_database(result))
-                    finally:
-                        loop.close()
-                    
-                    ch.basic_ack(delivery_tag=method.delivery_tag)
-                    
-                except Exception as e:
+                        success = await self.save_result_to_database(result)
+                        if success:
+                            print(f"Successfully processed optimization result for job {job_id}")
+                        else:
+                            print(f"Failed to process optimization result for job {job_id}")
+                        ch.basic_ack(delivery_tag=method.delivery_tag)
+                    except Exception as db_error:
+                        print(f"Database error processing result for job {job_id}: {db_error}")
+                        ch.basic_nack(delivery_tag=method.delivery_tag, requeue=False)
+
+                # Schedule coroutine in existing loop
+                loop.create_task(process())
+
+            except json.JSONDecodeError as e:
+                print(f"Invalid JSON in message: {e}")
+                ch.basic_nack(delivery_tag=method.delivery_tag, requeue=False)
+            except Exception as e:
                     print(f"Error processing result: {e}")
                     ch.basic_nack(delivery_tag=method.delivery_tag, requeue=False)
-            
+
             # Start consuming
             self.channel.basic_consume(
                 queue=self.output_queue,
                 on_message_callback=callback
             )
-            
+
             print("Waiting for optimization results. To exit press CTRL+C")
             self.channel.start_consuming()
-            
-        except KeyboardInterrupt:
-            print("\nShutting down gracefully...")
-            self.channel.stop_consuming()
-        except Exception as e:
-            print(f"Error: {e}")
-            self.channel.stop_consuming()
+
 
 
 # Example usage functions

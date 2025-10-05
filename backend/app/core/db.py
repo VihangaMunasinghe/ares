@@ -19,6 +19,7 @@ def _ensure_engine():
             pool_size=5,  # Limit concurrent connections
             max_overflow=0,  # Don't allow overflow beyond pool_size
             pool_recycle=3600,  # Recycle connections after 1 hour
+            pool_timeout=30,  # Timeout for getting connection from pool
             echo=False  # Set to True for SQL debugging
         )
         _SessionLocal = async_sessionmaker(_engine, expire_on_commit=False, class_=AsyncSession)

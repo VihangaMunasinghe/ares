@@ -251,7 +251,6 @@ export const recipeOutputsApi = {
     })
   },
 }
-import { apiRequest } from "./client";
 
 // Global entity interfaces
 export interface MaterialGlobal {

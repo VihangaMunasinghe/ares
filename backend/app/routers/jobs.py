@@ -29,6 +29,37 @@ import json
 router = APIRouter(prefix="/jobs", tags=["jobs"])
 
 # === MAIN JOB OPERATIONS ===
+@router.get("", response_model=list[JobOut])
+async def list_all_jobs(db: AsyncSession = Depends(get_db)):
+    rs = await db.execute(text("select * from jobs order by created_at desc"))
+    jobs = []
+    for row in rs.mappings().all():
+        job_dict = dict(row)
+        # Convert UUID objects to strings
+        if job_dict.get('id'):
+            job_dict['id'] = str(job_dict['id'])
+        if job_dict.get('mission_id'):
+            job_dict['mission_id'] = str(job_dict['mission_id'])
+        if job_dict.get('created_by'):
+            job_dict['created_by'] = str(job_dict['created_by'])
+        # Convert datetime objects to ISO strings
+        if job_dict.get('created_at'):
+            job_dict['created_at'] = job_dict['created_at'].isoformat()
+        if job_dict.get('updated_at'):
+            job_dict['updated_at'] = job_dict['updated_at'].isoformat()
+        if job_dict.get('started_at'):
+            job_dict['started_at'] = job_dict['started_at'].isoformat()
+        if job_dict.get('completed_at'):
+            job_dict['completed_at'] = job_dict['completed_at'].isoformat()
+        # Parse JSON params if it's a string
+        if job_dict.get('params') and isinstance(job_dict['params'], str):
+            try:
+                job_dict['params'] = json.loads(job_dict['params'])
+            except json.JSONDecodeError:
+                job_dict['params'] = {}
+        jobs.append(job_dict)
+    return jobs
+
 @router.get("/by-mission/{mission_id}", response_model=list[JobOut])
 async def list_jobs_by_mission(mission_id: str, db: AsyncSession = Depends(get_db)):
     rs = await db.execute(text("select * from jobs where mission_id = :mission_id order by created_at desc"), {"mission_id": mission_id})
@@ -491,24 +522,38 @@ async def run_job(
         await db.commit()
 
         try:
-            await queueProducer.publish_optimization_request(job_id)
+            # Ensure connection and publish optimization request
+            queueProducer.connect()
+            try:
+                await queueProducer.publish_optimization_request(job_id)
+            finally:
+                queueProducer.disconnect()
         except Exception as e:
-            # If queue publish fails, set job status to failed
+            # If queue publish fails, rollback and set job status to failed
+            await db.rollback()
             await db.execute(
-                text("update jobs set status = 'failed', finished_at = now(), error_message = :error_message where id = :job_id"),
+                text("update jobs set status = 'failed', completed_at = now(), error_message = :error_message where id = :job_id"),
                 {"job_id": job_id, "error_message": f"Queue error: {str(e)}"}
             )
             await db.commit()
             raise HTTPException(status_code=500, detail=f"Failed to start job: {str(e)}")
 
         return {"success": True, "message": "Job started", "job_id": job_id}
+    except HTTPException:
+        # Re-raise HTTP exceptions (they're already handled above)
+        raise
     except Exception as e:
-        # If any other error, set job status to failed
-        await db.execute(
-            text("update jobs set status = 'failed', finished_at = now(), error_message = :error_message where id = :job_id"),
-            {"job_id": job_id, "error_message": f"Internal error: {str(e)}"}
-        )
-        await db.commit()
+        # If any other error, rollback and set job status to failed
+        await db.rollback()
+        try:
+            await db.execute(
+                text("update jobs set status = 'failed', completed_at = now(), error_message = :error_message where id = :job_id"),
+                {"job_id": job_id, "error_message": f"Internal error: {str(e)}"}
+            )
+            await db.commit()
+        except Exception as db_error:
+            # If even the error update fails, just log it and continue
+            print(f"Failed to update job status to failed: {db_error}")
         raise HTTPException(status_code=500, detail=f"Failed to start job: {str(e)}")
 
 @router.get("/{job_id}/stream")

@@ -17,6 +17,13 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   MdArrowBack,
   MdPlayArrow,
   MdNavigateNext,
@@ -69,6 +76,7 @@ interface JobWizardState {
   // Step 1: Job Details
   jobName: string;
   jobDescription: string;
+  selectedMissionId: string;
 
   // Step 2: Entity Selection
   selectedMaterials: string[];
@@ -101,13 +109,18 @@ interface JobWizardState {
   }>;
 }
 
-export default function CreateJobWizardPage() {
+export default function JobWizardPage({
+  params,
+}: {
+  params: { job_id: string };
+}) {
   const searchParams = useSearchParams();
   const router = useRouter();
   const missionId = searchParams.get("mission");
-  const jobId = searchParams.get("job");
+  const jobId = params.job_id; // Get job_id from URL params
 
   const [currentStep, setCurrentStep] = useState(1);
+  const [missions, setMissions] = useState<any[]>([]);
   const [selectedMission, setSelectedMission] = useState<any>(null);
   const [currentJob, setCurrentJob] = useState<any>(null);
   const [loading, setLoading] = useState(false);
@@ -125,6 +138,7 @@ export default function CreateJobWizardPage() {
   const [wizardState, setWizardState] = useState<JobWizardState>({
     jobName: "",
     jobDescription: "",
+    selectedMissionId: "",
     selectedMaterials: [],
     selectedMethods: [],
     selectedOutputs: [],
@@ -141,22 +155,25 @@ export default function CreateJobWizardPage() {
   });
 
   useEffect(() => {
-    if (missionId) {
+    if (jobId) {
       const loadData = async () => {
         setLoading(true);
         setError(null);
 
         try {
-          // Load mission details and global entities in parallel
+          // Load job details first, then mission and global entities
+          const jobConfig = await jobsApi.getJobConfiguration(jobId);
+          const jobMissionId = jobConfig.job.mission_id || missionId;
+
           const [
-            mission,
+            missionsData,
             materialsData,
             methodsData,
             outputsData,
             itemsData,
             substitutesData,
           ] = await Promise.all([
-            missionsApi.getMission(missionId),
+            missionsApi.getMissions(),
             globalEntitiesApi.getMaterials(),
             globalEntitiesApi.getMethods(),
             globalEntitiesApi.getOutputs(),
@@ -164,77 +181,62 @@ export default function CreateJobWizardPage() {
             globalEntitiesApi.getSubstitutes(),
           ]);
 
-          setSelectedMission(mission);
+          setMissions(missionsData);
           setMaterials(materialsData);
           setMethods(methodsData);
           setOutputs(outputsData);
           setItems(itemsData);
           setSubstitutes(substitutesData);
 
-          // If jobId exists, load existing job configuration
-          if (jobId) {
-            try {
-              const jobConfig = await jobsApi.getJobConfiguration(jobId);
-              setCurrentJob(jobConfig.job);
-              setWizardState({
-                jobName: jobConfig.job.params?.name || "",
-                jobDescription: jobConfig.job.params?.description || "",
-                selectedMaterials: jobConfig.selectedMaterials,
-                selectedMethods: jobConfig.selectedMethods,
-                selectedOutputs: jobConfig.selectedOutputs,
-                selectedItems: jobConfig.selectedItems,
-                selectedSubstitutes: jobConfig.selectedSubstitutes,
-                materialInventories: jobConfig.materialInventories,
-                outputInventories: jobConfig.outputInventories,
-                itemInventories: jobConfig.itemInventories,
-                substituteInventories: jobConfig.substituteInventories,
-                itemDemands: jobConfig.itemDemands,
-                itemDeadlines: jobConfig.itemDeadlines,
-                weeklyResources:
-                  jobConfig.weeklyResources.length > 0
-                    ? jobConfig.weeklyResources
-                    : Array.from(
-                        { length: mission.duration_weeks },
-                        (_, i) => ({
-                          week: i + 1,
-                          crewAvailable: mission.crew_hours_per_week || 40,
-                          energyAvailable: 100,
-                        })
-                      ),
-                methodCapacities: jobConfig.methodCapacities,
-              });
-
-              // Set current step based on job status
-              const statusToStep = {
-                draft: 1,
-                entities_config: 2,
-                inventory_config: 3,
-                demands_config: 4,
-                resources_config: 5,
-                ready: 6,
-              };
-              setCurrentStep(
-                statusToStep[
-                  jobConfig.job.status as keyof typeof statusToStep
-                ] || 1
-              );
-            } catch (jobErr) {
-              console.error("Failed to load job configuration:", jobErr);
-              // If job loading fails, continue with new job flow
-            }
-          } else {
-            // Initialize weekly resources for new job
-            const weeklyResources = Array.from(
-              { length: mission.duration_weeks },
-              (_, i) => ({
-                week: i + 1,
-                crewAvailable: mission.crew_hours_per_week || 40,
-                energyAvailable: 100,
-              })
-            );
-
-            setWizardState((prev) => ({ ...prev, weeklyResources }));
+          // Set selected mission if job has one
+          let mission = null;
+          if (jobMissionId) {
+            mission = missionsData.find((m: any) => m.id === jobMissionId);
+            setSelectedMission(mission);
           }
+
+          // Load existing job configuration
+          setCurrentJob(jobConfig.job);
+          setWizardState({
+            jobName: jobConfig.job.params?.name || "",
+            jobDescription: jobConfig.job.params?.description || "",
+            selectedMissionId: jobMissionId || "",
+            selectedMaterials: jobConfig.selectedMaterials,
+            selectedMethods: jobConfig.selectedMethods,
+            selectedOutputs: jobConfig.selectedOutputs,
+            selectedItems: jobConfig.selectedItems,
+            selectedSubstitutes: jobConfig.selectedSubstitutes,
+            materialInventories: jobConfig.materialInventories,
+            outputInventories: jobConfig.outputInventories,
+            itemInventories: jobConfig.itemInventories,
+            substituteInventories: jobConfig.substituteInventories,
+            itemDemands: jobConfig.itemDemands,
+            itemDeadlines: jobConfig.itemDeadlines,
+            weeklyResources:
+              jobConfig.weeklyResources.length > 0
+                ? jobConfig.weeklyResources
+                : mission
+                ? Array.from({ length: mission.duration_weeks }, (_, i) => ({
+                    week: i + 1,
+                    crewAvailable: mission.crew_hours_per_week || 40,
+                    energyAvailable: 100,
+                  }))
+                : [], // Default empty array if no mission
+            methodCapacities: jobConfig.methodCapacities,
+          });
+
+          // Set current step based on job status
+          const statusToStep = {
+            draft: 1,
+            entities_config: 2,
+            inventory_config: 3,
+            demands_config: 4,
+            resources_config: 5,
+            ready: 6,
+          };
+          setCurrentStep(
+            statusToStep[jobConfig.job.status as keyof typeof statusToStep] || 1
+          );
         } catch (err) {
           console.error("Failed to load data:", err);
           setError(err instanceof Error ? err.message : "Failed to load data");
@@ -245,7 +247,7 @@ export default function CreateJobWizardPage() {
 
       loadData();
     }
-  }, [missionId, jobId]);
+  }, [jobId, missionId]);
 
   const handleNext = async () => {
     if (currentStep < STEPS.length) {
@@ -261,222 +263,175 @@ export default function CreateJobWizardPage() {
   };
 
   const handleCancel = () => {
-    router.push(`/optimizer?mission=${missionId}`);
+    if (missionId) {
+      router.push(`/optimizer?mission=${missionId}`);
+    } else {
+      router.push("/jobs");
+    }
   };
 
   const handleStepSubmission = async (step: number) => {
-    if (!selectedMission || isSubmitting) return;
+    if (isSubmitting || !jobId) return;
 
     setIsSubmitting(true);
     setError(null);
 
     try {
-      let currentJobId = jobId;
-
       switch (step) {
         case 1: // Job Details
-          if (!currentJobId) {
-            // Create new job
-            const jobData: JobCreateRequest = {
-              mission_id: missionId!,
-              total_weeks: selectedMission.duration_weeks,
-              w_mass: 1.0,
-              w_value: 1.0,
-              w_crew: 0.5,
-              w_energy: 0.2,
-              w_risk: 0.3,
-              w_make: 0.0,
-              w_carry: 0.0,
-              w_shortage: 10000.0,
-              params: {
-                name: wizardState.jobName,
-                description: wizardState.jobDescription,
-              },
-            };
-
-            const createdJob = await jobsApi.createJob(jobData);
-            currentJobId = createdJob.id;
-            setCurrentJob(createdJob);
-
-            // Add job ID to URL
-            const newUrl = new URL(window.location.href);
-            newUrl.searchParams.set("job", currentJobId);
-            window.history.replaceState({}, "", newUrl.toString());
-          } else {
-            // Update existing job params
-            await jobsApi.updateJobStatus(currentJobId, "draft");
-          }
+          // Update existing job params
+          await jobsApi.updateJobStatus(jobId, "draft");
           break;
 
         case 2: // Entity Selection
-          if (currentJobId) {
-            // Enable selected entities
-            const promises = [];
-            if (wizardState.selectedMaterials.length > 0) {
-              promises.push(
-                jobsApi.enableMaterials(
-                  currentJobId,
-                  wizardState.selectedMaterials
-                )
-              );
-            }
-            if (wizardState.selectedMethods.length > 0) {
-              promises.push(
-                jobsApi.enableMethods(currentJobId, wizardState.selectedMethods)
-              );
-            }
-            if (wizardState.selectedOutputs.length > 0) {
-              promises.push(
-                jobsApi.enableOutputs(currentJobId, wizardState.selectedOutputs)
-              );
-            }
-            if (wizardState.selectedItems.length > 0) {
-              promises.push(
-                jobsApi.enableItems(currentJobId, wizardState.selectedItems)
-              );
-            }
-            if (wizardState.selectedSubstitutes.length > 0) {
-              promises.push(
-                jobsApi.enableSubstitutes(
-                  currentJobId,
-                  wizardState.selectedSubstitutes
-                )
-              );
-            }
-
-            await Promise.all(promises);
-            await jobsApi.updateJobStatus(currentJobId, "entities_config");
+          // Enable selected entities
+          const promises = [];
+          if (wizardState.selectedMaterials.length > 0) {
+            promises.push(
+              jobsApi.enableMaterials(jobId, wizardState.selectedMaterials)
+            );
           }
+          if (wizardState.selectedMethods.length > 0) {
+            promises.push(
+              jobsApi.enableMethods(jobId, wizardState.selectedMethods)
+            );
+          }
+          if (wizardState.selectedOutputs.length > 0) {
+            promises.push(
+              jobsApi.enableOutputs(jobId, wizardState.selectedOutputs)
+            );
+          }
+          if (wizardState.selectedItems.length > 0) {
+            promises.push(
+              jobsApi.enableItems(jobId, wizardState.selectedItems)
+            );
+          }
+          if (wizardState.selectedSubstitutes.length > 0) {
+            promises.push(
+              jobsApi.enableSubstitutes(jobId, wizardState.selectedSubstitutes)
+            );
+          }
+
+          await Promise.all(promises);
+          await jobsApi.updateJobStatus(jobId, "entities_config");
           break;
 
         case 3: // Inventories
-          if (currentJobId) {
-            const promises = [];
+          const inventoryPromises = [];
 
-            // Set material inventories
-            for (const [materialId, qty] of Object.entries(
-              wizardState.materialInventories
-            )) {
-              if (qty > 0) {
-                promises.push(
-                  jobsApi.setMaterialInventory(currentJobId, materialId, qty)
-                );
-              }
+          // Set material inventories
+          for (const [materialId, qty] of Object.entries(
+            wizardState.materialInventories
+          )) {
+            if (qty > 0) {
+              inventoryPromises.push(
+                jobsApi.setMaterialInventory(jobId, materialId, qty)
+              );
             }
-
-            // Set output inventories
-            for (const [outputId, qty] of Object.entries(
-              wizardState.outputInventories
-            )) {
-              if (qty > 0) {
-                promises.push(
-                  jobsApi.setOutputInventory(currentJobId, outputId, qty)
-                );
-              }
-            }
-
-            // Set item inventories
-            for (const [itemId, qty] of Object.entries(
-              wizardState.itemInventories
-            )) {
-              if (qty > 0) {
-                promises.push(
-                  jobsApi.setItemInventory(currentJobId, itemId, qty)
-                );
-              }
-            }
-
-            // Set substitute inventories
-            for (const [substituteId, qty] of Object.entries(
-              wizardState.substituteInventories
-            )) {
-              if (qty > 0) {
-                promises.push(
-                  jobsApi.setSubstituteInventory(
-                    currentJobId,
-                    substituteId,
-                    qty
-                  )
-                );
-              }
-            }
-
-            await Promise.all(promises);
-            await jobsApi.updateJobStatus(currentJobId, "inventory_config");
           }
+
+          // Set output inventories
+          for (const [outputId, qty] of Object.entries(
+            wizardState.outputInventories
+          )) {
+            if (qty > 0) {
+              inventoryPromises.push(
+                jobsApi.setOutputInventory(jobId, outputId, qty)
+              );
+            }
+          }
+
+          // Set item inventories
+          for (const [itemId, qty] of Object.entries(
+            wizardState.itemInventories
+          )) {
+            if (qty > 0) {
+              inventoryPromises.push(
+                jobsApi.setItemInventory(jobId, itemId, qty)
+              );
+            }
+          }
+
+          // Set substitute inventories
+          for (const [substituteId, qty] of Object.entries(
+            wizardState.substituteInventories
+          )) {
+            if (qty > 0) {
+              inventoryPromises.push(
+                jobsApi.setSubstituteInventory(jobId, substituteId, qty)
+              );
+            }
+          }
+
+          await Promise.all(inventoryPromises);
+          await jobsApi.updateJobStatus(jobId, "inventory_config");
           break;
 
         case 4: // Demands & Deadlines
-          if (currentJobId) {
-            const promises = [];
+          const demandPromises = [];
 
-            // Set demands
-            for (const demand of wizardState.itemDemands) {
-              promises.push(
-                jobsApi.setItemDemand(
-                  currentJobId,
-                  demand.itemId,
-                  demand.week,
-                  demand.amount
-                )
-              );
-            }
-
-            // Set deadlines
-            for (const deadline of wizardState.itemDeadlines) {
-              promises.push(
-                jobsApi.setDeadline(
-                  currentJobId,
-                  deadline.itemId,
-                  deadline.week,
-                  deadline.amount
-                )
-              );
-            }
-
-            await Promise.all(promises);
-            await jobsApi.updateJobStatus(currentJobId, "demands_config");
+          // Set demands
+          for (const demand of wizardState.itemDemands) {
+            demandPromises.push(
+              jobsApi.setItemDemand(
+                jobId,
+                demand.itemId,
+                demand.week,
+                demand.amount
+              )
+            );
           }
+
+          // Set deadlines
+          for (const deadline of wizardState.itemDeadlines) {
+            demandPromises.push(
+              jobsApi.setDeadline(
+                jobId,
+                deadline.itemId,
+                deadline.week,
+                deadline.amount
+              )
+            );
+          }
+
+          await Promise.all(demandPromises);
+          await jobsApi.updateJobStatus(jobId, "demands_config");
           break;
 
         case 5: // Resources & Capacity
-          if (currentJobId) {
-            const promises = [];
+          const resourcePromises = [];
 
-            // Set weekly resources
-            for (const resource of wizardState.weeklyResources) {
-              promises.push(
-                jobsApi.setWeekResources(
-                  currentJobId,
-                  resource.week,
-                  resource.crewAvailable,
-                  resource.energyAvailable
-                )
-              );
-            }
-
-            // Set method capacities
-            for (const capacity of wizardState.methodCapacities) {
-              promises.push(
-                jobsApi.setMethodCapacity(
-                  currentJobId,
-                  capacity.methodId,
-                  capacity.week,
-                  capacity.maxCapacityKg,
-                  capacity.available
-                )
-              );
-            }
-
-            await Promise.all(promises);
-            await jobsApi.updateJobStatus(currentJobId, "resources_config");
+          // Set weekly resources
+          for (const resource of wizardState.weeklyResources) {
+            resourcePromises.push(
+              jobsApi.setWeekResources(
+                jobId,
+                resource.week,
+                resource.crewAvailable,
+                resource.energyAvailable
+              )
+            );
           }
+
+          // Set method capacities
+          for (const capacity of wizardState.methodCapacities) {
+            resourcePromises.push(
+              jobsApi.setMethodCapacity(
+                jobId,
+                capacity.methodId,
+                capacity.week,
+                capacity.maxCapacityKg,
+                capacity.available
+              )
+            );
+          }
+
+          await Promise.all(resourcePromises);
+          await jobsApi.updateJobStatus(jobId, "resources_config");
           break;
 
         case 6: // Ready to run
-          if (currentJobId) {
-            await jobsApi.updateJobStatus(currentJobId, "ready");
-          }
+          await jobsApi.updateJobStatus(jobId, "ready");
           break;
       }
     } catch (err) {
@@ -527,7 +482,13 @@ export default function CreateJobWizardPage() {
       await jobsApi.runJob(jobId);
 
       console.log("Job started successfully");
-      router.push(`/optimizer?mission=${missionId}&created=true`);
+
+      // Navigate back to jobs list or mission optimizer if mission is available
+      if (selectedMission) {
+        router.push(`/jobs?mission_id=${selectedMission.id}`);
+      } else {
+        router.push(`/jobs`);
+      }
     } catch (err) {
       console.error("Failed to run job:", err);
       setError(err instanceof Error ? err.message : "Failed to run job");
@@ -536,18 +497,18 @@ export default function CreateJobWizardPage() {
     }
   };
 
-  if (!missionId) {
+  if (!jobId) {
     return (
       <div className="space-y-6">
         <div className="flex items-center gap-4">
-          <Button variant="ghost" onClick={() => router.push("/optimizer")}>
+          <Button variant="ghost" onClick={() => router.push("/jobs")}>
             <MdArrowBack className="w-4 h-4 mr-2" />
-            Back to Optimizer
+            Back to Jobs
           </Button>
         </div>
         <Card>
           <CardContent className="flex items-center justify-center h-64">
-            <p className="text-muted-foreground">Mission ID not provided</p>
+            <p className="text-muted-foreground">Job ID not provided</p>
           </CardContent>
         </Card>
       </div>
@@ -607,24 +568,6 @@ export default function CreateJobWizardPage() {
     );
   }
 
-  if (!selectedMission) {
-    return (
-      <div className="space-y-6">
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" onClick={handleCancel}>
-            <MdArrowBack className="w-4 h-4 mr-2" />
-            Back to Optimizer
-          </Button>
-        </div>
-        <Card>
-          <CardContent className="flex items-center justify-center h-64">
-            <p className="text-muted-foreground">Mission not found</p>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
   const currentStepData = STEPS[currentStep - 1];
   const progress = (currentStep / STEPS.length) * 100;
 
@@ -641,11 +584,22 @@ export default function CreateJobWizardPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-foreground">
-            Create Optimization Job
+            Configure Optimization Job
           </h1>
           <p className="text-muted-foreground mt-1">
-            For mission:{" "}
-            <span className="font-semibold">{selectedMission.name}</span>
+            {selectedMission ? (
+              <>
+                For mission:{" "}
+                <span className="font-semibold">{selectedMission.name}</span>
+              </>
+            ) : (
+              "No mission selected"
+            )}
+            {currentJob && (
+              <span className="ml-2 text-sm">
+                (Job: {currentJob.params?.name || currentJob.id})
+              </span>
+            )}
           </p>
         </div>
         <div className="flex items-center gap-2 text-muted-foreground">
@@ -738,31 +692,54 @@ export default function CreateJobWizardPage() {
                 />
               </div>
 
-              <div className="bg-muted/50 p-4 rounded-lg">
-                <h4 className="font-medium mb-2">Mission Context</h4>
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <span className="text-muted-foreground">Mission:</span>
-                    <div className="font-medium">{selectedMission.name}</div>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Duration:</span>
-                    <div className="font-medium">
-                      {selectedMission.duration_weeks} weeks
+              <div className="space-y-2">
+                <Label htmlFor="missionSelect">Mission</Label>
+                <Select
+                  value={wizardState.selectedMissionId}
+                  disabled={true} // Read-only in job edit mode
+                >
+                  <SelectTrigger className="w-full bg-muted">
+                    <SelectValue placeholder="No mission selected" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {missions.map((mission) => (
+                      <SelectItem key={mission.id} value={mission.id}>
+                        {mission.name} ({mission.duration_weeks} weeks)
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {selectedMission && (
+                <div className="bg-muted/50 p-4 rounded-lg">
+                  <h4 className="font-medium mb-2">Mission Details</h4>
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <span className="text-muted-foreground">Mission:</span>
+                      <div className="font-medium">{selectedMission.name}</div>
                     </div>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Crew Size:</span>
-                    <div className="font-medium">
-                      {selectedMission.crew_count} members
+                    <div>
+                      <span className="text-muted-foreground">Duration:</span>
+                      <div className="font-medium">
+                        {selectedMission.duration_weeks} weeks
+                      </div>
                     </div>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Status:</span>
-                    <div className="font-medium">{selectedMission.status}</div>
+                    <div>
+                      <span className="text-muted-foreground">Crew Size:</span>
+                      <div className="font-medium">
+                        {selectedMission.crew_count} members
+                      </div>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Status:</span>
+                      <div className="font-medium">
+                        {selectedMission.status}
+                      </div>
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
             </div>
           )}
 
