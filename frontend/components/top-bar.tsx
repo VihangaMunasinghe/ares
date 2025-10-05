@@ -66,12 +66,12 @@ export function TopBar() {
             <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse"></div>
             <span className="text-xs font-technical text-blue-400">DATA</span>
           </div>
-            <div className="text-xs font-technical text-muted-foreground">
+          <div className="text-xs font-technical text-muted-foreground">
             {new Date(currentTime.getTime() + 5 * 60 * 60 * 1000 + 30 * 60 * 1000).toLocaleTimeString('en-US', { 
               hour12: false, 
               timeZone: 'UTC' 
             })} UTC
-            </div>
+          </div>
         </div>
         
         <div className="h-8 w-px bg-border"></div>

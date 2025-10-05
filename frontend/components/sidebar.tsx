@@ -11,6 +11,7 @@ import {
   MdWork,
   MdCompareArrows,
   MdCalendarMonth,
+  MdSwapHoriz,
 } from "react-icons/md"
 import { cn } from "@/lib/utils"
 
@@ -19,8 +20,8 @@ const navigation = [
   { name: "Missions", href: "/missions", icon: MdRocket },
   { name: "Recipes", href: "/recipes", icon: MdRestaurantMenu },
   { name: "Items", href: "/items", icon: MdInventory },
-  { name: "Job Center", href: "/jobs", icon: MdWork },
-  { name: "Diff Viewer", href: "/diff", icon: MdCompareArrows },
+  { name: "Substitutes", href: "/substitutes", icon: MdSwapHoriz },
+  { name: "Jobs", href: "/jobs", icon: MdWork },
   { name: "Scheduler", href: "/scheduler", icon: MdCalendarMonth },
 ]
 
@@ -62,7 +63,7 @@ export function Sidebar() {
                 className={cn(
                   "flex items-center transition-all duration-200 group relative overflow-hidden border-l-4",
                   !isHovered 
-                    ? "gap-0 px-2 py-3 justify-center" 
+                    ? "gap-0 px-3 py-3 justify-center" // Consistent padding
                     : "gap-3 px-4 py-3",
                   isActive
                     ? "bg-sidebar-primary/10 text-sidebar-primary-foreground border-l-accent shadow-sm"
@@ -74,13 +75,13 @@ export function Sidebar() {
                   <div className="absolute inset-0 bg-gradient-to-r from-primary/10 to-accent/5"></div>
                 )}
                 <Icon className={cn(
-                  "relative z-10 transition-transform group-hover:scale-105 shrink-0",
-                  !isHovered ? "w-6 h-6" : "w-5 h-5",
+                  "relative z-10 transition-all duration-200 group-hover:scale-105 shrink-0",
+                  "w-5 h-5", // Keep consistent icon size
                   isActive ? "text-accent" : "text-sidebar-foreground/70"
                 )} />
                 {isHovered && (
                   <span className={cn(
-                    "font-medium relative z-10 tracking-wide min-w-0",
+                    "font-technical font-medium relative z-10 tracking-wide min-w-0 transition-opacity duration-200 uppercase",
                     isActive ? "text-sidebar-foreground font-semibold" : "text-sidebar-foreground/70"
                   )}>{item.name}</span>
                 )}
