@@ -56,13 +56,14 @@ class JobResultsProcessor:
                         completed_at = now(),
                         result_summary = :result_summary,
                         result_bundle = :result_bundle,
-                        solver_status = :solver_status
+                        solver_status = :solver_status,
+                        error_message = NULL
                     WHERE id = :job_id
                 """), {
                     "job_id": job_id,
-                    "result_summary": optimization_results.get('summary', {}),
-                    "result_bundle": optimization_results,
-                    "solver_status": optimization_results.get('solver_status', {})
+                    "result_summary": json.dumps(optimization_results.get('summary', {})),
+                    "result_bundle": json.dumps(optimization_results),
+                    "solver_status": json.dumps(optimization_results.get('solver_status', {}))
                 })
                 
             else:
@@ -72,7 +73,10 @@ class JobResultsProcessor:
                     UPDATE jobs 
                     SET status = 'failed', 
                         completed_at = now(),
-                        error_message = :error_message
+                        error_message = :error_message,
+                        result_summary = NULL,
+                        result_bundle = NULL,
+                        solver_status = NULL
                     WHERE id = :job_id
                 """), {
                     "job_id": job_id,
@@ -138,6 +142,9 @@ class JobResultsProcessor:
         if not summary:
             return
         
+        # Clear existing summary for this job
+        await self.db.execute(text("DELETE FROM job_result_summary WHERE job_id = :job_id"), {"job_id": job_id})
+        
         await self.db.execute(text("""
             INSERT INTO job_result_summary (
                 job_id, objective_value, total_processed_kg, total_output_produced_kg,
@@ -161,6 +168,9 @@ class JobResultsProcessor:
     
     async def _save_schedule(self, job_id: str, schedule: List[Dict[str, Any]]):
         """Save job result schedule"""
+        # Clear existing schedule for this job
+        await self.db.execute(text("DELETE FROM job_result_schedule WHERE job_id = :job_id"), {"job_id": job_id})
+        
         for week_data in schedule:
             week = week_data.get('week')
             methods = week_data.get('methods', {})
@@ -187,6 +197,9 @@ class JobResultsProcessor:
     
     async def _save_outputs(self, job_id: str, outputs: List[Dict[str, Any]]):
         """Save job result outputs"""
+        # Clear existing outputs for this job
+        await self.db.execute(text("DELETE FROM job_result_outputs WHERE job_id = :job_id"), {"job_id": job_id})
+        
         for output_data in outputs:
             output_key = output_data.get('output')
             weeks_data = output_data.get('weeks', [])
@@ -213,6 +226,9 @@ class JobResultsProcessor:
     
     async def _save_substitutes(self, job_id: str, substitutes: List[Dict[str, Any]]):
         """Save job result substitutes"""
+        # Clear existing substitutes for this job
+        await self.db.execute(text("DELETE FROM job_result_substitutes WHERE job_id = :job_id"), {"job_id": job_id})
+        
         for substitute_data in substitutes:
             substitute_key = substitute_data.get('substitute')
             weeks_data = substitute_data.get('weeks', [])
@@ -240,6 +256,9 @@ class JobResultsProcessor:
     
     async def _save_items(self, job_id: str, items: List[Dict[str, Any]]):
         """Save job result items"""
+        # Clear existing items for this job
+        await self.db.execute(text("DELETE FROM job_result_items WHERE job_id = :job_id"), {"job_id": job_id})
+        
         for item_data in items:
             item_key = item_data.get('item')
             weeks_data = item_data.get('weeks', [])
@@ -267,6 +286,9 @@ class JobResultsProcessor:
     
     async def _save_substitute_breakdown(self, job_id: str, breakdown: Dict[str, Any]):
         """Save substitute breakdown totals"""
+        # Clear existing substitute breakdown for this job
+        await self.db.execute(text("DELETE FROM job_result_substitute_breakdown WHERE job_id = :job_id"), {"job_id": job_id})
+        
         for substitute_key, total_made in breakdown.items():
             # Get substitute ID
             substitute_id = await self._get_entity_id('substitutes_global', substitute_key)
@@ -287,6 +309,9 @@ class JobResultsProcessor:
     
     async def _save_weight_loss(self, job_id: str, weight_loss: Dict[str, Any]):
         """Save weight loss data"""
+        # Clear existing weight loss for this job
+        await self.db.execute(text("DELETE FROM job_result_weight_loss WHERE job_id = :job_id"), {"job_id": job_id})
+        
         for item_key, loss_data in weight_loss.items():
             # Get item ID
             item_id = await self._get_entity_id('items_global', item_key)
@@ -320,7 +345,7 @@ class JobResultsProcessor:
             {"key": key}
         )
         result = rs.mappings().first()
-        return result['id'] if result else None
+        return str(result['id']) if result else None
     
     async def _get_method_recipe_ids(self, job_id: str, method_key: str) -> List[str]:
         """Get recipe IDs for a method used in this job"""
@@ -333,4 +358,4 @@ class JobResultsProcessor:
             WHERE jem.job_id = :job_id AND m.key = :method_key
         """), {"job_id": job_id, "method_key": method_key})
         
-        return [row['id'] for row in rs.mappings().all()]
+        return [str(row['id']) for row in rs.mappings().all()]

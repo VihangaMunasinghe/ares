@@ -477,7 +477,7 @@ export default function JobsPage() {
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => router.push(`/jobs/results/${job.id}`)}
+                          onClick={() => router.push(`/jobs/${job.id}/results`)}
                           className="gap-1"
                         >
                           View Details
@@ -492,7 +492,7 @@ export default function JobsPage() {
                           <Button
                             size="sm"
                             onClick={() =>
-                              router.push(`/jobs/results/${job.id}`)
+                              router.push(`/jobs/${job.id}/results`)
                             }
                             className="gap-1"
                           >
@@ -500,28 +500,116 @@ export default function JobsPage() {
                           </Button>
                         </div>
                         <div className="grid grid-cols-3 gap-4 text-sm">
-                          <div className="border border-green-200 bg-green-100 dark:bg-green-900/20 dark:border-green-800 p-3 rounded-lg">
-                            <div className="font-medium text-green-800 dark:text-green-200">
-                              Score
+                          {/* Enhanced Objective Function Score */}
+                          <div className="border border-green-200 bg-gradient-to-br from-green-100 to-emerald-100 dark:from-green-900/30 dark:to-emerald-900/30 dark:border-green-800 p-4 rounded-lg shadow-sm">
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="font-medium text-green-800 dark:text-green-200">
+                                Optimization Score
+                              </div>
+                              <div className="text-xs text-green-600 dark:text-green-400">
+                                {job.result.metrics.optimizationScore >= 8
+                                  ? "🏆 Excellent"
+                                  : job.result.metrics.optimizationScore >= 6
+                                  ? "⭐ Good"
+                                  : job.result.metrics.optimizationScore >= 4
+                                  ? "✅ Fair"
+                                  : "⚠️ Needs Improvement"}
+                              </div>
                             </div>
-                            <div className="text-lg font-bold text-green-900 dark:text-green-100">
-                              {job.result.metrics.optimizationScore}/10
+                            <div className="flex items-center gap-2">
+                              <div className="text-2xl font-bold text-green-900 dark:text-green-100">
+                                {job.result.metrics.optimizationScore.toFixed(
+                                  1
+                                )}
+                              </div>
+                              <div className="text-sm text-green-700 dark:text-green-300">
+                                /10
+                              </div>
+                            </div>
+                            <div className="mt-2">
+                              <div className="w-full bg-green-200 dark:bg-green-800 rounded-full h-2">
+                                <div
+                                  className="bg-green-600 h-2 rounded-full transition-all duration-300"
+                                  style={{
+                                    width: `${
+                                      (job.result.metrics.optimizationScore /
+                                        10) *
+                                      100
+                                    }%`,
+                                  }}
+                                ></div>
+                              </div>
+                            </div>
+                            <div className="mt-2 text-xs text-green-600 dark:text-green-400">
+                              {job.result.metrics.optimizationScore >= 8
+                                ? "Outstanding performance across all metrics"
+                                : job.result.metrics.optimizationScore >= 6
+                                ? "Strong optimization with good efficiency"
+                                : job.result.metrics.optimizationScore >= 4
+                                ? "Decent optimization with room for improvement"
+                                : "Consider reviewing mission parameters"}
                             </div>
                           </div>
-                          <div className="border border-blue-200 bg-blue-100 dark:bg-blue-900/20 dark:border-blue-800 p-3 rounded-lg">
-                            <div className="font-medium text-blue-800 dark:text-blue-200">
-                              Duration
+
+                          {/* Enhanced Duration */}
+                          <div className="border border-blue-200 bg-gradient-to-br from-blue-100 to-cyan-100 dark:from-blue-900/30 dark:to-cyan-900/30 dark:border-blue-800 p-4 rounded-lg shadow-sm">
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="font-medium text-blue-800 dark:text-blue-200">
+                                Processing Time
+                              </div>
+                              <div className="text-xs text-blue-600 dark:text-blue-400">
+                                {job.result.metrics.duration < 5
+                                  ? "⚡ Fast"
+                                  : job.result.metrics.duration < 15
+                                  ? "🕐 Normal"
+                                  : "⏳ Slow"}
+                              </div>
                             </div>
-                            <div className="text-lg font-bold text-blue-900 dark:text-blue-100">
-                              {job.result.metrics.duration}m
+                            <div className="flex items-center gap-2">
+                              <div className="text-2xl font-bold text-blue-900 dark:text-blue-100">
+                                {job.result.metrics.duration}
+                              </div>
+                              <div className="text-sm text-blue-700 dark:text-blue-300">
+                                minutes
+                              </div>
+                            </div>
+                            <div className="mt-2 text-xs text-blue-600 dark:text-blue-400">
+                              {job.result.metrics.duration < 5
+                                ? "Excellent performance"
+                                : job.result.metrics.duration < 15
+                                ? "Good performance"
+                                : "Consider optimization"}
                             </div>
                           </div>
-                          <div className="border border-purple-200 bg-purple-100 dark:bg-purple-900/20 dark:border-purple-800 p-3 rounded-lg">
-                            <div className="font-medium text-purple-800 dark:text-purple-200">
-                              Items Processed
+
+                          {/* Enhanced Items Processed */}
+                          <div className="border border-purple-200 bg-gradient-to-br from-purple-100 to-violet-100 dark:from-purple-900/30 dark:to-violet-900/30 dark:border-purple-800 p-4 rounded-lg shadow-sm">
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="font-medium text-purple-800 dark:text-purple-200">
+                                Items Processed
+                              </div>
+                              <div className="text-xs text-purple-600 dark:text-purple-400">
+                                {job.result.metrics.itemsProcessed > 100
+                                  ? "🔥 High Volume"
+                                  : job.result.metrics.itemsProcessed > 50
+                                  ? "📦 Medium"
+                                  : "📋 Low Volume"}
+                              </div>
                             </div>
-                            <div className="text-lg font-bold text-purple-900 dark:text-purple-100">
-                              {job.result.metrics.itemsProcessed}
+                            <div className="flex items-center gap-2">
+                              <div className="text-2xl font-bold text-purple-900 dark:text-purple-100">
+                                {job.result.metrics.itemsProcessed}
+                              </div>
+                              <div className="text-sm text-purple-700 dark:text-purple-300">
+                                items
+                              </div>
+                            </div>
+                            <div className="mt-2 text-xs text-purple-600 dark:text-purple-400">
+                              {job.result.metrics.itemsProcessed > 100
+                                ? "High throughput achieved"
+                                : job.result.metrics.itemsProcessed > 50
+                                ? "Moderate processing"
+                                : "Light processing load"}
                             </div>
                           </div>
                         </div>

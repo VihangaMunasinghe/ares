@@ -645,3 +645,74 @@ async def get_job_result_weight_loss(job_id: str, db: AsyncSession = Depends(get
         ORDER BY ig.name
     """), {"job_id": job_id})
     return [dict(r) for r in rs.mappings().all()]
+
+@router.get("/{job_id}/metrics")
+async def get_job_metrics(job_id: str, db: AsyncSession = Depends(get_db)):
+    """Get enhanced job metrics for better optimization score calculation"""
+    
+    # Get job basic info
+    job_rs = await db.execute(text("""
+        SELECT id, total_weeks, status, created_at, started_at, completed_at
+        FROM jobs WHERE id = :job_id
+    """), {"job_id": job_id})
+    job = job_rs.mappings().first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    
+    # Get result summary
+    summary_rs = await db.execute(text("""
+        SELECT * FROM job_result_summary WHERE job_id = :job_id
+    """), {"job_id": job_id})
+    summary = summary_rs.mappings().first()
+    
+    if not summary:
+        return {
+            "job_id": job_id,
+            "status": job["status"],
+            "has_results": False,
+            "metrics": None
+        }
+    
+    # Calculate enhanced metrics
+    total_weeks = job["total_weeks"]
+    objective_value = summary["objective_value"]
+    total_processed = summary["total_processed_kg"]
+    total_output = summary["total_output_produced_kg"]
+    weight_loss = summary["total_carried_weight_loss"]
+    
+    # Calculate processing efficiency
+    processing_efficiency = (total_output / total_processed * 100) if total_processed > 0 else 0
+    
+    # Calculate weight reduction percentage
+    initial_weight = summary["total_initial_carriage_weight"]
+    weight_reduction_pct = (weight_loss / initial_weight * 100) if initial_weight > 0 else 0
+    
+    # Calculate weekly averages
+    avg_weekly_processed = total_processed / total_weeks if total_weeks > 0 else 0
+    avg_weekly_output = total_output / total_weeks if total_weeks > 0 else 0
+    
+    # Calculate optimization score components
+    mission_scale = total_weeks * 10
+    normalized_objective = max(0, objective_value / mission_scale) if mission_scale > 0 else 0
+    
+    metrics = {
+        "objective_value": float(objective_value),
+        "total_processed_kg": float(total_processed),
+        "total_output_produced_kg": float(total_output),
+        "total_substitutes_made": float(summary["total_substitutes_made"]),
+        "total_weight_loss_kg": float(weight_loss),
+        "processing_efficiency_percent": round(processing_efficiency, 2),
+        "weight_reduction_percent": round(weight_reduction_pct, 2),
+        "avg_weekly_processed_kg": round(avg_weekly_processed, 2),
+        "avg_weekly_output_kg": round(avg_weekly_output, 2),
+        "normalized_objective": round(normalized_objective, 4),
+        "mission_scale_factor": mission_scale,
+        "total_weeks": total_weeks
+    }
+    
+    return {
+        "job_id": job_id,
+        "status": job["status"],
+        "has_results": True,
+        "metrics": metrics
+    }

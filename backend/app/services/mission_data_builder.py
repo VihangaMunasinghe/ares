@@ -261,9 +261,10 @@ class MissionDataBuilder:
         rs = await self.db.execute(text("""
             SELECT i.key as item_key, m.key as material_key, iw.waste_per_unit
             FROM job_enabled_items jei
-            JOIN item_waste_global iw ON iw.item_id = jei.item_id
+            JOIN job_enabled_materials jem ON jei.job_id = jem.job_id
+            JOIN item_waste_global iw ON iw.item_id = jei.item_id AND iw.material_id = jem.material_id
             JOIN items_global i ON i.id = jei.item_id
-            JOIN materials_global m ON m.id = iw.material_id
+            JOIN materials_global m ON m.id = jem.material_id
             WHERE jei.job_id = :job_id
         """), {"job_id": job_id})
         
@@ -279,9 +280,10 @@ class MissionDataBuilder:
         rs = await self.db.execute(text("""
             SELECT s.key as substitute_key, m.key as material_key, sw.waste_per_unit
             FROM job_enabled_substitutes jes
-            JOIN substitute_waste_global sw ON sw.substitute_id = jes.substitute_id
+            JOIN job_enabled_materials jem ON jes.job_id = jem.job_id
+            JOIN substitute_waste_global sw ON sw.substitute_id = jes.substitute_id AND sw.material_id = jem.material_id
             JOIN substitutes_global s ON s.id = jes.substitute_id
-            JOIN materials_global m ON m.id = sw.material_id
+            JOIN materials_global m ON m.id = jem.material_id
             WHERE jes.job_id = :job_id
         """), {"job_id": job_id})
         

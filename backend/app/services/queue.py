@@ -329,7 +329,7 @@ class QueueConsumer:
                     success = await processor.process_optimization_result(result)
                     
                     if success:
-                        job_id = result.get('request_id', 'unknown')
+                        job_id = result.get('job_id', 'unknown')
                         print(f"Successfully saved optimization result for request {job_id}")
                         return True
                     else:
@@ -375,11 +375,10 @@ class QueueConsumer:
         def callback(ch, method, properties, body):
             try:
                 result = json.loads(body)
-                job_id = result.get('request_id', 'unknown')
+                job_id = result.get('job_id', 'unknown')
                 print(f"Received optimization result: {job_id}")
 
                 # Use the synchronous wrapper to avoid event loop conflicts
-                print(f"Saving optimization result to database: {result}")
                 success = self.save_result_to_database_sync(result)
                 
                 if success:

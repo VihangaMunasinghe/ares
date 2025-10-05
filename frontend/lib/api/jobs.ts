@@ -62,6 +62,46 @@ export interface Job {
   };
 }
 
+// Calculate optimization score based on multiple factors
+function calculateOptimizationScore({
+  objectiveValue,
+  totalProcessed,
+  totalOutput,
+  weightLoss,
+  totalWeeks,
+}: {
+  objectiveValue: number;
+  totalProcessed: number;
+  totalOutput: number;
+  weightLoss: number;
+  totalWeeks: number;
+}): number {
+  // Base score from objective value (normalized)
+  let score = 0;
+
+  // Factor 1: Objective value contribution (40% weight)
+  // Normalize objective value based on mission scale
+  const missionScale = totalWeeks * 10; // Expected scale factor
+  const normalizedObjective = Math.max(0, objectiveValue / missionScale);
+  const objectiveScore = Math.min(10, normalizedObjective * 4); // Scale to 0-4
+
+  // Factor 2: Processing efficiency (30% weight)
+  const efficiency = totalProcessed > 0 ? totalOutput / totalProcessed : 0;
+  const efficiencyScore = Math.min(3, efficiency * 3); // Scale to 0-3
+
+  // Factor 3: Weight reduction achievement (20% weight)
+  const weightReductionScore = Math.min(2, weightLoss / 10); // Scale to 0-2
+
+  // Factor 4: Mission completion bonus (10% weight)
+  const completionBonus = totalProcessed > 0 ? 1 : 0; // 0-1
+
+  score =
+    objectiveScore + efficiencyScore + weightReductionScore + completionBonus;
+
+  // Ensure score is between 0 and 10
+  return Math.max(0, Math.min(10, Math.round(score * 10) / 10));
+}
+
 // Transform backend job to frontend job format
 function transformJob(backendJob: BackendJob): Job {
   // Generate a readable name based on job parameters or use a default
@@ -81,20 +121,30 @@ function transformJob(backendJob: BackendJob): Job {
   // Transform result if available
   let result = undefined;
   if (backendJob.status === "completed" && backendJob.result_summary) {
+    const objectiveValue = backendJob.result_summary.objective_value || 0;
+    const totalProcessed = backendJob.result_summary.total_processed_kg || 0;
+    const totalOutput = backendJob.result_summary.total_output_produced_kg || 0;
+    const weightLoss = backendJob.result_summary.total_carried_weight_loss || 0;
+
+    // Calculate a more meaningful optimization score
+    const optimizationScore = calculateOptimizationScore({
+      objectiveValue,
+      totalProcessed,
+      totalOutput,
+      weightLoss,
+      totalWeeks: backendJob.total_weeks,
+    });
+
     result = {
       success: true,
       metrics: {
-        optimizationScore: Math.round(
-          ((backendJob.result_summary.objective_value || 0) / 1000) * 10
-        ), // Scale to 0-10
+        optimizationScore,
         duration: Math.round(
           (Date.parse(backendJob.completed_at || backendJob.created_at) -
             Date.parse(backendJob.started_at || backendJob.created_at)) /
             (1000 * 60)
         ), // Duration in minutes
-        itemsProcessed: Math.round(
-          backendJob.result_summary.total_processed_kg || 0
-        ),
+        itemsProcessed: Math.round(totalProcessed),
       },
     };
   }
@@ -175,6 +225,16 @@ export const jobsApi = {
   async getJob(jobId: string): Promise<Job> {
     const backendJob = await apiRequest<BackendJob>(`/jobs/${jobId}`);
     return transformJob(backendJob);
+  },
+
+  // Get enhanced job metrics
+  async getJobMetrics(jobId: string): Promise<any> {
+    return apiRequest<any>(`/jobs/${jobId}/metrics`);
+  },
+
+  // Debug job data
+  async debugJobData(jobId: string): Promise<any> {
+    return apiRequest<any>(`/jobs/${jobId}/debug`);
   },
 
   // Create a new job
@@ -447,30 +507,88 @@ export const jobsApi = {
 
   // Job Results API methods
   async getJobResultSummary(jobId: string): Promise<any> {
-    return apiRequest<any>(`/jobs/${jobId}/results/summary`);
+    try {
+      return await apiRequest<any>(`/jobs/${jobId}/results/summary`);
+    } catch (error: any) {
+      if (error.status === 404) {
+        console.log(`No summary data found for job ${jobId}`);
+        return null;
+      }
+      throw error;
+    }
   },
 
   async getJobResultSchedule(jobId: string): Promise<any[]> {
-    return apiRequest<any[]>(`/jobs/${jobId}/results/schedule`);
+    try {
+      return await apiRequest<any[]>(`/jobs/${jobId}/results/schedule`);
+    } catch (error: any) {
+      if (error.status === 404) {
+        console.log(`No schedule data found for job ${jobId}`);
+        return [];
+      }
+      throw error;
+    }
   },
 
   async getJobResultOutputs(jobId: string): Promise<any[]> {
-    return apiRequest<any[]>(`/jobs/${jobId}/results/outputs`);
+    try {
+      return await apiRequest<any[]>(`/jobs/${jobId}/results/outputs`);
+    } catch (error: any) {
+      if (error.status === 404) {
+        console.log(`No outputs data found for job ${jobId}`);
+        return [];
+      }
+      throw error;
+    }
   },
 
   async getJobResultSubstitutes(jobId: string): Promise<any[]> {
-    return apiRequest<any[]>(`/jobs/${jobId}/results/substitutes`);
+    try {
+      return await apiRequest<any[]>(`/jobs/${jobId}/results/substitutes`);
+    } catch (error: any) {
+      if (error.status === 404) {
+        console.log(`No substitutes data found for job ${jobId}`);
+        return [];
+      }
+      throw error;
+    }
   },
 
   async getJobResultSubstituteBreakdown(jobId: string): Promise<any[]> {
-    return apiRequest<any[]>(`/jobs/${jobId}/results/substitute-breakdown`);
+    try {
+      return await apiRequest<any[]>(
+        `/jobs/${jobId}/results/substitute-breakdown`
+      );
+    } catch (error: any) {
+      if (error.status === 404) {
+        console.log(`No substitute breakdown data found for job ${jobId}`);
+        return [];
+      }
+      throw error;
+    }
   },
 
   async getJobResultItems(jobId: string): Promise<any[]> {
-    return apiRequest<any[]>(`/jobs/${jobId}/results/items`);
+    try {
+      return await apiRequest<any[]>(`/jobs/${jobId}/results/items`);
+    } catch (error: any) {
+      if (error.status === 404) {
+        console.log(`No items data found for job ${jobId}`);
+        return [];
+      }
+      throw error;
+    }
   },
 
   async getJobResultWeightLoss(jobId: string): Promise<any[]> {
-    return apiRequest<any[]>(`/jobs/${jobId}/results/weight-loss`);
+    try {
+      return await apiRequest<any[]>(`/jobs/${jobId}/results/weight-loss`);
+    } catch (error: any) {
+      if (error.status === 404) {
+        console.log(`No weight loss data found for job ${jobId}`);
+        return [];
+      }
+      throw error;
+    }
   },
 };

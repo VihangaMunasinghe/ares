@@ -136,6 +136,8 @@ class OptimizationWorker:
                 'status': 'success',
                 'results':optimization_results
             }
+
+            print(f"Response: {response}")
             
         except Exception as e:
             print(f"Error processing request: {str(e)}")
@@ -165,6 +167,7 @@ class OptimizationWorker:
                     delivery_mode=2,  # Make message persistent
                 )
             )
+            
             print(f"Response published to queue: {self.output_queue}")
         except Exception as e:
             print(f"Error publishing response: {str(e)}")
