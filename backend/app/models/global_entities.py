@@ -176,3 +176,15 @@ class SubstitutesCanReplaceGlobalOut(BaseModel):
     id: UUID
     item_id: UUID
     substitute_id: UUID
+
+# === Items Catalog (Joined Data) ===
+class ItemsCatalogOut(BaseModel):
+    id: str
+    name: str
+    category: str
+    unit: str
+    mass_per_unit: Optional[float]
+    composition: str  # Material names and percentages
+    waste_mappings: int  # Count of waste mappings
+    safety: dict  # Safety flags from materials
+    created_at: str
