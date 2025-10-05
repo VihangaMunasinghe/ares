@@ -25,12 +25,12 @@ export function TopBar() {
   const unreadCount = notifications.filter(n => !n.isRead).length
   
   return (
-    <header className="h-16 border-b border-border bg-card px-6 flex items-center justify-between relative overflow-hidden">
+    <header className="h-16 border-b border-border bg-card flex items-center justify-between relative overflow-hidden fixed top-0 left-0 right-0 z-50">
       {/* NASA-style background accent */}
       <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-primary via-accent to-primary"></div>
       <div className="absolute bottom-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-primary/30 to-transparent"></div>
       
-      <div className="flex items-center gap-4 relative z-10">
+      <div className="flex items-center gap-4 relative z-10 px-6">
         {/* Sidebar Toggle Button */}
         <Button
           variant="ghost"
@@ -42,9 +42,9 @@ export function TopBar() {
         </Button>
         
         <div>
-          <h1 className="text-xl font-bold text-foreground tracking-tight">MARS MISSION OPTIMIZER</h1>
+          <h1 className="text-xl font-bold text-foreground tracking-tight font-technical">ARES</h1>
           <div className="flex items-center gap-3 mt-1">
-            <p className="text-xs text-muted-foreground font-technical uppercase tracking-wider">NASA Operations Center</p>
+            <p className="text-xs text-muted-foreground font-technical uppercase tracking-wider">Mission Control</p>
             <div className={`w-1 h-1 rounded-full ${isOnline ? 'bg-green-400 animate-pulse' : 'bg-red-400'}`}></div>
             <span className={`text-xs font-technical ${isOnline ? 'text-green-400' : 'text-red-400'}`}>
               {isChecking ? 'CHECKING...' : isOnline ? 'LIVE' : 'OFFLINE'}
@@ -53,7 +53,7 @@ export function TopBar() {
         </div>
       </div>
 
-      <div className="flex items-center gap-3 relative z-10">
+      <div className="flex items-center gap-3 relative z-10 px-6">
         {/* Real-time indicators */}
         <div className="hidden md:flex items-center gap-4 mr-4">
           <div className="flex items-center gap-2">

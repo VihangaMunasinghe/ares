@@ -35,10 +35,10 @@ export default function RootLayout({
     <html lang="en" className={`${inter.variable} ${spaceMono.variable} dark`}>
       <body className="antialiased bg-background text-foreground">
         <SidebarProvider>
-          <div className="flex h-screen overflow-hidden">
+          <TopBar />
+          <div className="flex h-screen overflow-hidden pt-6">
             <Sidebar />
             <div className="flex flex-col flex-1 overflow-hidden">
-              <TopBar />
               <main className="flex-1 overflow-y-auto p-6">{children}</main>
             </div>
           </div>

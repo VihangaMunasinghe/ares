@@ -33,7 +33,7 @@ export function Sidebar() {
       <aside 
         className={cn(
           "bg-sidebar border-r border-sidebar-border flex flex-col relative transition-all duration-300 ease-in-out",
-          "fixed top-0 left-0 h-full z-50 lg:relative lg:translate-x-0",
+          "fixed top-6 left-0 h-[calc(100vh-4rem)] z-40 lg:relative lg:translate-x-0 lg:top-0 lg:h-full",
           "group", // Add group class for hover effects
           isHovered ? "w-64" : "w-16"
         )}
@@ -45,26 +45,6 @@ export function Sidebar() {
           <div className="absolute top-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-primary to-transparent"></div>
           <div className="absolute top-16 left-0 w-full h-px bg-gradient-to-r from-transparent via-accent to-transparent"></div>
           <div className="absolute bottom-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-primary to-transparent"></div>
-        </div>
-        
-        <div className={cn(
-          "border-b border-sidebar-border relative z-10 transition-all duration-300",
-          !isHovered ? "p-3" : "p-6"
-        )}>
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 nasa-gradient rounded-lg flex items-center justify-center relative overflow-hidden shrink-0">
-              <MdRocket className="w-7 h-7 text-white z-10" />
-              <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent"></div>
-            </div>
-            {isHovered && (
-              <div className="min-w-0">
-                <h2 className="font-bold text-xl text-sidebar-foreground tracking-tight">ARES</h2>
-                <p className="text-xs text-sidebar-foreground/70 font-technical tracking-wider uppercase">Mission Control</p>
-              </div>
-            )}
-          </div>
-          
-          {/* Mission status indicator */}
         </div>
 
         <nav className={cn(

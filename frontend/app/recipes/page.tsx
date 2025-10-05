@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
+import { Card, CardContent } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { MdUpload, MdDownload, MdFileDownload, MdSettings } from "react-icons/md"
 import { RecipesTable } from "./components/RecipesTable"
@@ -425,66 +426,90 @@ export default function RecipesPage() {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Top Bar */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-foreground">Recipe Input Dashboard</h1>
-          <p className="text-muted-foreground mt-1">Define and manage recycling recipes for Mars missions</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={handleDownloadTemplate} className="gap-2 bg-transparent">
-            <MdDownload className="w-4 h-4" />
-            Download Template
-          </Button>
-          <Button variant="outline" onClick={handleExportCSV} className="gap-2 bg-transparent">
-            <MdFileDownload className="w-4 h-4" />
-            Export Grid (CSV)
-          </Button>
-          <Button onClick={() => setIsUploadOpen(true)} className="gap-2">
-            <MdUpload className="w-4 h-4" />
-            Upload CSV/JSON
-          </Button>
-        </div>
+    <div className="space-y-3 p-3">
+      {/* NASA-style Header */}
+      <div className="relative">
+        <div className="absolute top-0 left-0 w-20 h-1 bg-gradient-to-r from-primary to-accent rounded-full"></div>
+        <h1 className="text-3xl font-bold text-foreground tracking-tight pt-4 font-technical">RECIPE INPUT DASHBOARD</h1>
+        <p className="text-muted-foreground mt-2 font-technical tracking-wide text-sm">
+          Define and manage recycling recipes for Mars missions • Sol 1247 • ARES Mission Control
+        </p>
       </div>
 
-      {/* Main Content Tabs */}
-      <Tabs defaultValue="recipes" className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="recipes">Recipe Grid</TabsTrigger>
-          <TabsTrigger value="manage" className="gap-2">
-            <MdSettings className="w-4 h-4" />
-            Manage Materials & Methods
-          </TabsTrigger>
-        </TabsList>
-        
-        <TabsContent value="recipes" className="mt-6">
-          {isLoadingData ? (
-            <div className="flex items-center justify-center p-8">
-              <p className="text-muted-foreground">Loading data...</p>
-            </div>
-          ) : (
-            <RecipesTable 
-              gridData={gridData} 
-              onCellClick={handleCellClick} 
-              onDataChange={setGridData}
-              onCreateRecipe={handleCreateRecipe}
-              onDeleteRecipe={handleDeleteRecipe}
-            />
-          )}
-        </TabsContent>
-        
-        <TabsContent value="manage" className="mt-6">
-          <MaterialsMethodsManager
-            materials={apiMaterials}
-            methods={apiMethods}
-            onMaterialsChange={handleMaterialsChange}
-            onMethodsChange={handleMethodsChange}
-            onAddMaterial={handleAddMaterial}
-            onAddMethod={handleAddMethod}
-          />
-        </TabsContent>
-      </Tabs>
+      {/* Enhanced Main Content Tabs */}
+      <Card className="border-border/50 bg-card/80 backdrop-blur-sm">
+        <CardContent className="p-6">
+          <Tabs defaultValue="recipes" className="w-full">
+            <TabsList className="grid w-full grid-cols-2 bg-secondary/30 border border-border/50">
+              <TabsTrigger 
+                value="recipes" 
+                className="font-technical text-xs tracking-wider uppercase data-[state=active]:bg-primary/20 data-[state=active]:text-primary"
+              >
+                RECIPE GRID
+              </TabsTrigger>
+              <TabsTrigger 
+                value="manage" 
+                className="gap-2 font-technical text-xs tracking-wider uppercase data-[state=active]:bg-primary/20 data-[state=active]:text-primary"
+              >
+                <MdSettings className="w-4 h-4" />
+                MANAGE MATERIALS & METHODS
+              </TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="recipes" className="mt-6">
+              {isLoadingData ? (
+                <div className="flex items-center justify-center p-12">
+                  <div className="text-center space-y-3">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+                    <p className="text-muted-foreground font-technical text-sm tracking-wider">LOADING RECIPE DATA...</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  
+                  <RecipesTable 
+                    gridData={gridData} 
+                    onCellClick={handleCellClick} 
+                    onDataChange={setGridData}
+                    onCreateRecipe={handleCreateRecipe}
+                    onDeleteRecipe={handleDeleteRecipe}
+                  />
+                </div>
+              )}
+            </TabsContent>
+            
+            <TabsContent value="manage" className="mt-6">
+              <div className="space-y-4">
+                {/* Management Status */}
+                <div className="p-4 bg-secondary/20 rounded-lg border border-border/30">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse"></div>
+                        <span className="text-xs font-technical text-blue-400 uppercase tracking-wider">
+                          MANAGEMENT MODE
+                        </span>
+                      </div>
+                      <span className="text-sm font-technical text-muted-foreground">
+                        Configure global materials and processing methods
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                
+                <MaterialsMethodsManager
+                  materials={apiMaterials}
+                  methods={apiMethods}
+                  onMaterialsChange={handleMaterialsChange}
+                  onMethodsChange={handleMethodsChange}
+                  onAddMaterial={handleAddMaterial}
+                  onAddMethod={handleAddMethod}
+                />
+              </div>
+            </TabsContent>
+          </Tabs>
+        </CardContent>
+      </Card>
 
       {/* Recipe Details Popup */}
       <RecipeDetailsPopup
