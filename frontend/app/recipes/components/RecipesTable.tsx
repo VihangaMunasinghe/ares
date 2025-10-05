@@ -21,18 +21,18 @@ export function RecipesTable({ gridData, onCellClick, onDataChange, onCreateReci
   return (
     <Card className="border-border/50 bg-card/80 backdrop-blur-sm mission-card-glow">
       <CardContent className="p-6">
-        <div className="overflow-x-auto">
+        <div className="overflow-auto max-h-[80vh]">
           <div className="inline-block min-w-full align-middle">
             <table className="w-full border-collapse">
-              <thead>
+              <thead className="sticky top-0 z-10 bg-card/95 backdrop-blur-sm">
                 <tr>
-                  <th className="p-4 text-left text-sm font-technical font-semibold text-primary uppercase tracking-wider border-b border-border/50">
+                  <th className="p-4 text-left text-sm font-technical font-semibold text-primary uppercase tracking-wider border-b border-border/50 bg-card/95 backdrop-blur-sm">
                     MATERIAL / METHOD
                   </th>
                   {gridData.methods.map((method) => (
                     <th
                       key={method.id}
-                      className="p-4 text-center text-sm font-technical font-semibold text-primary uppercase tracking-wider border-b border-border/50 min-w-64"
+                      className="p-4 text-center text-sm font-technical font-semibold text-primary uppercase tracking-wider border-b border-border/50 min-w-64 bg-card/95 backdrop-blur-sm"
                     >
                       <div className="space-y-2">
                         <div className="font-bold">{method.name}</div>
