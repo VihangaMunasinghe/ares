@@ -34,6 +34,7 @@ async def list_jobs_by_mission(mission_id: str, db: AsyncSession = Depends(get_d
     rs = await db.execute(text("select * from jobs where mission_id = :mission_id order by created_at desc"), {"mission_id": mission_id})
     return [dict(r) for r in rs.mappings().all()]
 
+
 @router.post("", response_model=JobOut)
 async def create_job(payload: JobCreate, db: AsyncSession = Depends(get_db)):
     rs = await db.execute(text("""
