@@ -143,7 +143,7 @@ Water Filter Cartridge,equipment,unit,1.2,AquaMars Systems,AMS-FLT-205`
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3 p-3">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>

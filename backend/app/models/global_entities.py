@@ -122,6 +122,18 @@ class RecipeOutputGlobalOut(BaseModel):
     output_id: UUID
     yield_ratio: float
 
+class RecipeOutputDetailedOut(BaseModel):
+    recipe_output_id: str
+    recipe_id: str
+    output_id: str
+    yield_ratio: float
+    output_key: str
+    output_name: str
+    units_label: str
+    value_per_kg: float
+    max_output_capacity_kg: Optional[float]
+    output_created_at: str
+
 # === Relationship Models ===
 class ItemWasteGlobalCreate(BaseModel):
     item_id: UUID

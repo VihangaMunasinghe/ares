@@ -31,6 +31,12 @@ export interface Recipe {
   outputs: {
     product: string
     yield: number
+    output_name?: string
+    yield_ratio?: number
+    output_key?: string
+    units_label?: string
+    value_per_kg?: number
+    max_output_capacity_kg?: number
   }[]
   constraints: {
     volumeConstraint?: number
@@ -42,6 +48,15 @@ export interface Recipe {
     contaminationRisk: boolean
   }
   validationErrors?: string[]
+  apiRecipe?: {
+    id: string
+    material_id: string
+    method_id: string
+    crew_cost_per_kg: number
+    energy_cost_kwh_per_kg: number
+    risk_cost: number
+    created_at: string
+  }
 }
 
 export interface RecipeGridData {
