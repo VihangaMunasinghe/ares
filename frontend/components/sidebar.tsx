@@ -19,8 +19,7 @@ const navigation = [
   { name: "Missions", href: "/missions", icon: MdRocket },
   { name: "Recipes", href: "/recipes", icon: MdRestaurantMenu },
   { name: "Items", href: "/items", icon: MdInventory },
-  { name: "Job Center", href: "/jobs", icon: MdWork },
-  { name: "Diff Viewer", href: "/diff", icon: MdCompareArrows },
+  { name: "Jobs", href: "/jobs", icon: MdWork },
   { name: "Scheduler", href: "/scheduler", icon: MdCalendarMonth },
 ]
 

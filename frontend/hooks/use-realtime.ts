@@ -3,15 +3,24 @@
 import { useState, useEffect } from 'react'
 
 export function useRealTimeClock() {
-  const [time, setTime] = useState(new Date())
+  const [time, setTime] = useState(() => new Date())
+  const [isMounted, setIsMounted] = useState(false)
 
   useEffect(() => {
+    setIsMounted(true)
+    setTime(new Date())
+    
     const timer = setInterval(() => {
       setTime(new Date())
     }, 1000)
 
     return () => clearInterval(timer)
   }, [])
+
+  // Return a stable time for SSR to prevent hydration mismatch
+  if (!isMounted) {
+    return new Date('2024-01-01T00:00:00Z')
+  }
 
   return time
 }
