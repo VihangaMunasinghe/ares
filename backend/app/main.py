@@ -229,14 +229,21 @@ def stop_consumer():
     """Stop the queue consumer"""
     global consumer, consumer_thread
     
-    if consumer:
-        logger.info("Stopping queue consumer...")
-        consumer.disconnect()
-        consumer = None
-    
-    if consumer_thread and consumer_thread.is_alive():
-        consumer_thread.join(timeout=5)
-        logger.info("Consumer thread stopped")
+    try:
+        if consumer:
+            logger.info("Stopping queue consumer...")
+            consumer.disconnect()
+            consumer = None
+        
+        if consumer_thread and consumer_thread.is_alive():
+            logger.info("Waiting for consumer thread to stop...")
+            consumer_thread.join(timeout=5)
+            if consumer_thread.is_alive():
+                logger.warning("Consumer thread did not stop within timeout")
+            else:
+                logger.info("Consumer thread stopped")
+    except Exception as e:
+        logger.error(f"Error stopping consumer: {e}")
 
 
 @app.on_event("startup")

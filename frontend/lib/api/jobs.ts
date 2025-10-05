@@ -49,6 +49,8 @@ export interface Job {
   status: JobStatus;
   progress: number;
   createdAt: string;
+  startedAt?: string;
+  completedAt?: string;
   error?: string;
   result?: {
     success: boolean;
@@ -105,6 +107,8 @@ function transformJob(backendJob: BackendJob): Job {
     status: backendJob.status,
     progress,
     createdAt: backendJob.created_at,
+    startedAt: backendJob.started_at || undefined,
+    completedAt: backendJob.completed_at || undefined,
     error: backendJob.error_message || undefined,
     result,
   };
@@ -319,7 +323,11 @@ export const jobsApi = {
       `/jobs/${jobId}/inventory/materials`,
       {
         method: "POST",
-        body: JSON.stringify({ material_id: materialId, qty_kg: qtyKg }),
+        body: JSON.stringify({
+          job_id: jobId,
+          material_id: materialId,
+          qty_kg: qtyKg,
+        }),
       }
     );
   },
@@ -333,7 +341,11 @@ export const jobsApi = {
       `/jobs/${jobId}/inventory/outputs`,
       {
         method: "POST",
-        body: JSON.stringify({ output_id: outputId, qty_kg: qtyKg }),
+        body: JSON.stringify({
+          job_id: jobId,
+          output_id: outputId,
+          qty_kg: qtyKg,
+        }),
       }
     );
   },
@@ -345,7 +357,11 @@ export const jobsApi = {
   ): Promise<{ success: boolean }> {
     return apiRequest<{ success: boolean }>(`/jobs/${jobId}/inventory/items`, {
       method: "POST",
-      body: JSON.stringify({ item_id: itemId, qty_units: qtyUnits }),
+      body: JSON.stringify({
+        job_id: jobId,
+        item_id: itemId,
+        qty_units: qtyUnits,
+      }),
     });
   },
 
@@ -359,6 +375,7 @@ export const jobsApi = {
       {
         method: "POST",
         body: JSON.stringify({
+          job_id: jobId,
           substitute_id: substituteId,
           qty_units: qtyUnits,
         }),
@@ -375,7 +392,7 @@ export const jobsApi = {
   ): Promise<{ success: boolean }> {
     return apiRequest<{ success: boolean }>(`/jobs/${jobId}/demands`, {
       method: "POST",
-      body: JSON.stringify({ item_id: itemId, week, amount }),
+      body: JSON.stringify({ job_id: jobId, item_id: itemId, week, amount }),
     });
   },
 
@@ -387,7 +404,7 @@ export const jobsApi = {
   ): Promise<{ success: boolean }> {
     return apiRequest<{ success: boolean }>(`/jobs/${jobId}/deadlines`, {
       method: "POST",
-      body: JSON.stringify({ item_id: itemId, week, amount }),
+      body: JSON.stringify({ job_id: jobId, item_id: itemId, week, amount }),
     });
   },
 
@@ -401,6 +418,7 @@ export const jobsApi = {
     return apiRequest<{ success: boolean }>(`/jobs/${jobId}/resources`, {
       method: "POST",
       body: JSON.stringify({
+        job_id: jobId,
         week,
         crew_available: crewAvailable,
         energy_available: energyAvailable,
@@ -418,11 +436,41 @@ export const jobsApi = {
     return apiRequest<{ success: boolean }>(`/jobs/${jobId}/method-capacity`, {
       method: "POST",
       body: JSON.stringify({
+        job_id: jobId,
         method_id: methodId,
         week,
         max_capacity_kg: maxCapacityKg,
         available,
       }),
     });
+  },
+
+  // Job Results API methods
+  async getJobResultSummary(jobId: string): Promise<any> {
+    return apiRequest<any>(`/jobs/${jobId}/results/summary`);
+  },
+
+  async getJobResultSchedule(jobId: string): Promise<any[]> {
+    return apiRequest<any[]>(`/jobs/${jobId}/results/schedule`);
+  },
+
+  async getJobResultOutputs(jobId: string): Promise<any[]> {
+    return apiRequest<any[]>(`/jobs/${jobId}/results/outputs`);
+  },
+
+  async getJobResultSubstitutes(jobId: string): Promise<any[]> {
+    return apiRequest<any[]>(`/jobs/${jobId}/results/substitutes`);
+  },
+
+  async getJobResultSubstituteBreakdown(jobId: string): Promise<any[]> {
+    return apiRequest<any[]>(`/jobs/${jobId}/results/substitute-breakdown`);
+  },
+
+  async getJobResultItems(jobId: string): Promise<any[]> {
+    return apiRequest<any[]>(`/jobs/${jobId}/results/items`);
+  },
+
+  async getJobResultWeightLoss(jobId: string): Promise<any[]> {
+    return apiRequest<any[]>(`/jobs/${jobId}/results/weight-loss`);
   },
 };

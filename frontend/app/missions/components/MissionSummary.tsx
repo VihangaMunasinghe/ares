@@ -40,7 +40,7 @@ export function MissionSummary({ mission }: MissionSummaryProps) {
   }
 
   const handleOptimize = () => {
-    router.push(`/optimizer?mission=${mission.id}`)
+    router.push(`/jobs?mission=${mission.id}`)
   }
 
   const getStatusVariant = (status: Mission["status"]) => {
