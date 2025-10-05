@@ -49,18 +49,18 @@ export default function MissionDetailsPage() {
       <div className="space-y-6">
         <div className="flex items-center gap-4">
           <Link href="/missions">
-            <Button variant="outline" size="sm" className="gap-2">
+            <Button variant="outline" size="sm" className="gap-2 font-technical">
               <MdArrowBack className="w-4 h-4" />
               Back to Missions
             </Button>
           </Link>
         </div>
-        <Card>
+        <Card className="border-border/50 bg-card/80 backdrop-blur-sm">
           <CardContent className="flex flex-col items-center justify-center py-16">
             <div className="text-center space-y-4">
-              <div className="animate-spin text-4xl">🔄</div>
-              <h3 className="text-xl font-semibold text-foreground">Loading mission...</h3>
-              <p className="text-muted-foreground">Please wait while we fetch the mission details</p>
+              <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+              <h3 className="text-xl font-semibold text-foreground font-technical tracking-wide">LOADING MISSION DATA</h3>
+              <p className="text-muted-foreground font-technical tracking-wider text-sm uppercase">Establishing connection • Please wait</p>
             </div>
           </CardContent>
         </Card>
@@ -73,27 +73,29 @@ export default function MissionDetailsPage() {
       <div className="space-y-6">
         <div className="flex items-center gap-4">
           <Link href="/missions">
-            <Button variant="outline" size="sm" className="gap-2">
+            <Button variant="outline" size="sm" className="gap-2 font-technical">
               <MdArrowBack className="w-4 h-4" />
               Back to Missions
             </Button>
           </Link>
         </div>
-        <Card>
+        <Card className="border-destructive/20 bg-destructive/10">
           <CardContent className="flex flex-col items-center justify-center py-16">
             <div className="text-center space-y-4">
-              <div className="text-6xl">⚠️</div>
-              <h3 className="text-xl font-semibold text-foreground">Mission not found</h3>
-              <p className="text-muted-foreground max-w-sm">
+              <div className="w-16 h-16 rounded-full bg-destructive/20 flex items-center justify-center">
+                <span className="text-2xl">⚠️</span>
+              </div>
+              <h3 className="text-xl font-semibold text-foreground font-technical tracking-wide">MISSION DATA UNAVAILABLE</h3>
+              <p className="text-muted-foreground max-w-sm font-technical tracking-wider text-sm">
                 {error || "The mission you're looking for doesn't exist or has been removed."}
               </p>
               <div className="flex gap-2">
-                <Button onClick={fetchMission} variant="outline" className="gap-2">
+                <Button onClick={fetchMission} variant="outline" className="gap-2 font-technical">
                   <MdRefresh className="w-4 h-4" />
-                  Try again
+                  Retry Connection
                 </Button>
                 <Link href="/missions">
-                  <Button>Return to Missions</Button>
+                  <Button className="font-technical">Return to Missions</Button>
                 </Link>
               </div>
             </div>
@@ -107,7 +109,7 @@ export default function MissionDetailsPage() {
     <div className="space-y-6">
       <div className="flex items-center gap-4">
         <Link href="/missions">
-          <Button variant="outline" size="sm" className="gap-2">
+          <Button variant="outline" size="sm" className="gap-2 font-technical">
             <MdArrowBack className="w-4 h-4" />
             Back to Missions
           </Button>
