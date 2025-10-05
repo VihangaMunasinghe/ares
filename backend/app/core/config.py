@@ -9,6 +9,9 @@ class Settings(BaseModel):
     SUPABASE_SERVICE_ROLE_KEY: str | None = None
     AUTH_DISABLED: bool = True
     CORS_ORIGINS: list[str] = []
+    
+    # RabbitMQ Settings
+    RABBITMQ_HOST: str | None = None
 
 @lru_cache
 def get_settings() -> Settings:
@@ -19,4 +22,7 @@ def get_settings() -> Settings:
         SUPABASE_SERVICE_ROLE_KEY=os.getenv("SUPABASE_SERVICE_ROLE_KEY"),
         AUTH_DISABLED=os.getenv("AUTH_DISABLED", "true").lower() == "true",
         CORS_ORIGINS=[o.strip() for o in os.getenv("CORS_ORIGINS", "*").split(",") if o.strip()],
+        
+        # RabbitMQ Settings
+        RABBITMQ_HOST=os.getenv("RABBITMQ_HOST"),
     )

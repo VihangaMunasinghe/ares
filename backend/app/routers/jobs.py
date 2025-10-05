@@ -20,6 +20,8 @@ from app.models.job_results import (
     JobResultItemOut, JobResultSubstituteOut, JobResultSubstituteBreakdownOut,
     JobResultWeightLossOut
 )
+from app.services.queue import QueueProducer
+from app.core.queue import get_queue
 from sse_starlette.sse import EventSourceResponse
 import asyncio
 import json
@@ -293,15 +295,40 @@ async def set_method_capacity(job_id: str, payload: JobMethodCapacityCreate, db:
 
 # === JOB EXECUTION ===
 @router.post("/{job_id}/run")
-async def run_job(job_id: str, background_tasks: BackgroundTasks, db: AsyncSession = Depends(get_db)):
-    # Update job status to running
-    await db.execute(text("update jobs set status = 'running', started_at = now() where id = :job_id"), {"job_id": job_id})
-    await db.commit()
-    
-    # TODO: Implement actual optimization logic
-    # background_tasks.add_task(run_optimization, job_id)
-    
-    return {"success": True, "message": "Job started", "job_id": job_id}
+async def run_job(
+    job_id: str,
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db),
+    queueProducer: QueueProducer = Depends(get_queue)
+):
+    try:
+        # Set job status to running and started_at
+        await db.execute(
+            text("update jobs set status = 'running', started_at = now() where id = :job_id"),
+            {"job_id": job_id}
+        )
+        await db.commit()
+
+        try:
+            await queueProducer.publish_optimization_request(job_id)
+        except Exception as e:
+            # If queue publish fails, set job status to failed
+            await db.execute(
+                text("update jobs set status = 'failed', finished_at = now(), error_message = :error_message where id = :job_id"),
+                {"job_id": job_id, "error_message": f"Queue error: {str(e)}"}
+            )
+            await db.commit()
+            raise HTTPException(status_code=500, detail=f"Failed to start job: {str(e)}")
+
+        return {"success": True, "message": "Job started", "job_id": job_id}
+    except Exception as e:
+        # If any other error, set job status to failed
+        await db.execute(
+            text("update jobs set status = 'failed', finished_at = now(), error_message = :error_message where id = :job_id"),
+            {"job_id": job_id, "error_message": f"Internal error: {str(e)}"}
+        )
+        await db.commit()
+        raise HTTPException(status_code=500, detail=f"Failed to start job: {str(e)}")
 
 @router.get("/{job_id}/stream")
 async def stream_job_progress(job_id: str, db: AsyncSession = Depends(get_db)):
